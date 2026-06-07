@@ -1,0 +1,55 @@
+@media (max-width: 1180px) {
+  .page-grid-message,
+  .live2d-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .user-panel,
+  .digital-human-panel {
+    min-height: auto;
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    padding: 14px;
+  }
+
+  .nav-list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+  }
+
+  .workspace {
+    padding: 14px;
+  }
+
+  .topbar,
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .message-row {
+    max-width: 94%;
+  }
+
+  .form-grid,
+  .composer {
+    grid-template-columns: 1fr;
+  }
+}

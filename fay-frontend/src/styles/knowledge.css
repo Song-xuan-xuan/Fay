@@ -1,0 +1,141 @@
+.knowledge-panel {
+  min-height: calc(100vh - 126px);
+}
+
+.knowledge-panel .knowledge-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  padding: 18px;
+}
+
+.knowledge-panel .knowledge-main,
+.knowledge-panel .knowledge-side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.knowledge-panel .kb-section {
+  border: 1px solid #e0e6ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.knowledge-panel .kb-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.knowledge-panel .kb-section-header.compact {
+  margin-bottom: 10px;
+}
+
+.knowledge-panel .kb-section-header h3 {
+  margin: 0 0 4px;
+  color: #263449;
+  font-size: 1rem;
+}
+
+.knowledge-panel .kb-section-header p {
+  margin: 0;
+  color: #667085;
+  font-size: 0.84rem;
+  word-break: break-all;
+}
+
+.knowledge-panel .file-input {
+  display: none;
+}
+
+.knowledge-panel .upload-actions,
+.knowledge-panel .query-actions,
+.knowledge-panel .side-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.knowledge-panel .selected-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.knowledge-panel .file-name-cell {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  color: #344054;
+}
+
+.knowledge-panel .file-name-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-panel .query-actions {
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.knowledge-panel .side-actions {
+  flex-direction: column;
+}
+
+.knowledge-panel .side-actions .el-button {
+  justify-content: flex-start;
+  margin-left: 0;
+}
+
+.knowledge-panel .result-section {
+  flex: 1;
+  min-height: 0;
+}
+
+.knowledge-panel .result-box {
+  min-height: 220px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #d9deea;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+  color: #263449;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1080px) {
+  .knowledge-panel .knowledge-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .knowledge-panel .knowledge-layout {
+    padding: 14px;
+  }
+
+  .knowledge-panel .kb-section-header,
+  .knowledge-panel .query-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .knowledge-panel .upload-actions .el-button,
+  .knowledge-panel .query-actions .el-button {
+    margin-left: 0;
+  }
+}

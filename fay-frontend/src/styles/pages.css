@@ -1,0 +1,264 @@
+/* 消息页面布局 - 修复高度溢出问题 */
+.page-grid-message {
+  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  height: calc(100vh - 170px);
+  overflow: hidden;
+}
+
+.user-panel,
+.digital-human-panel,
+.chat-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-panel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.chat-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 24px;
+  scroll-behavior: smooth;
+}
+
+.share-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border-light);
+  padding: 12px 20px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* 消息气泡 - Apple iMessage 风格 */
+.message-row {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  max-width: 70%;
+}
+
+.message-row.selected .bubble {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.message-row.from-user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.share-check {
+  position: absolute;
+  top: 8px;
+  left: -10px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-bg-primary);
+  transition: all 0.2s ease;
+}
+
+.share-check.checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.share-check.checked::after {
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  width: 4px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.bubble {
+  border: none;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.47;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.from-user .bubble {
+  background: var(--color-accent);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+}
+
+.bubble p {
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble time {
+  display: block;
+  opacity: 0.6;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.from-user .bubble time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 思考块 */
+.think-block {
+  max-height: 180px;
+  overflow: auto;
+  border-left: 3px solid var(--color-accent);
+  margin: 12px 0;
+  padding-left: 12px;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+
+.prestart-block {
+  margin-top: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  padding: 12px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* 图片缩略图 */
+.image-thumbnail-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  vertical-align: middle;
+}
+
+.message-image-thumbnail {
+  width: 72px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.image-zoom-hint,
+.image-path-text {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.message-image {
+  width: 120px;
+  height: 90px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* 输入框 */
+.composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border-top: 1px solid var(--color-border-light);
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* 右侧数字人 */
+.digital-human-panel {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+}
+
+.digital-human-panel iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+/* 设置面板 */
+.settings-panel {
+  padding-bottom: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.settings-form {
+  padding: 24px;
+}
+
+.form-section {
+  border-bottom: 1px solid var(--color-border-light);
+  padding: 4px 0 24px;
+  margin-bottom: 24px;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+/* 表单网格布局 - 多列响应式 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px 20px;
+}
+
+/* 开关网格布局 */
+.switch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* 危险区域 */
+.danger-zone {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--color-border-light);
+  background: rgba(255, 59, 48, 0.04);
+}
