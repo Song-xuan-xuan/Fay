@@ -1,133 +1,179 @@
+# Fay 数字人知识库助手
 
-<div align="center">
-    <br>
-    <img src="readme/icon.png" alt="Fay">
-    <h1>FAY</h1>
-	<h3>Fay数字人框架</h3>
-</div>
+本仓库基于 Fay 数字人框架进行二次开发，集成了 Vue 管理端、用户认证、数据看板、消息会话、头像上传、MCP 管理、知识库上传与 RAG 检索等能力。项目主要用于搭建可本地运行的数字人问答平台，并支持通过本地 embedding 模型构建私有知识库。
 
-！！重要通知：我们已经把Fay的三个版本合并成1个，并致力提供更稳定更全面的功能。
+## 功能概览
 
-我们致力于思考面向终端的数字人落地应用，并通过完整代码把思考结果呈现给大家。Fay数字人框架，向上适配各种数字人模型技术，向下接入各式大语言模型，并且便于更换诸如TTS、ASR等模型，为单片机、app、网站提供全面的数字人应用接口。      
-更新日志：https://qqk9ntwbcit.feishu.cn/wiki/UlbZwfAXgiKSquk52AkcibhHngg
-文档：https://qqk9ntwbcit.feishu.cn/wiki/JzMJw7AghiO8eHktMwlcxznenIg
+- 数字人对话：支持文本、语音、图片消息以及数字人播报。
+- 用户体系：支持登录、注册、管理员用户管理、个人中心、头像上传和密码修改。
+- 管理看板：提供运行状态、用户数据、会话数据和系统指标展示。
+- 知识库：管理员可在前端上传文档，触发 ingest 后供 RAG 查询使用。
+- MCP 管理：在 Vue 页面中管理 MCP server、工具、资源和连接状态。
+- 本地 embedding：支持加载 `model/bge-large-zh-v1.5` 等本地模型，避免依赖远程 embedding API。
 
+## 项目结构
 
-## **功能特点**
+```text
+.
+├── main.py                 # 主启动入口
+├── fay_booter.py           # Fay 服务编排与启动逻辑
+├── core/                   # 认证、会话、看板、核心交互服务
+├── gui/                    # Flask 后端接口与传统页面
+├── fay-frontend/           # Vue 3 + Vite 前端管理端
+├── faymcp/                 # MCP 服务、MCP API 与知识库路由
+├── mcp_servers/            # 本地 MCP server 示例与实现
+├── llm/ asr/ tts/          # LLM、语音识别、语音合成适配
+├── utils/                  # 配置、embedding、图片存储等工具
+├── config/                 # 配置相关模块
+└── readme/                 # README 图片资源
+```
 
+运行期数据通常会生成到 `memory/`、`logs/`、`cache_data/`、`library/` 等目录，这些内容不应提交到 Git。
 
+## 环境要求
 
-- 完全开源，商用免责
-- 支持全离线使用
-- 全时流式的支持
-- 自由匹配数字人模型、大语言模型（openai 兼容接口）、ASR、TTS模型
-- 支持数字人自动播报模式（虚拟教师、虚拟主播、新闻播报）
-- 支持任意终端使用：单片机、app、网站、大屏、三方业务系统接入等
-- 支持多用户多路并发
-- 提供文字交互接口、语音交互接口、数字人驱动接口、管理控制接口、自动播报接口、意图接口
-- 支持语音指令灵活配置执行（qa.csv）
-- 支持自定义知识库、自定义问答对、自定义人设信息
-- 支持唤醒及打断对话
-- 支持服务器及单机模式
-- 支持机器人表情输出
-- 支持agent自主决策工具调用
-- 基于日程式数字人主动对话
-- 支持后台静默启动
-- 支持deepseek等thinking llm
-- 自我认知提高
-- 仿生记忆
-- 支持MCP工具管理（sse、studio）
-- 提供配置管理中心
-- 全链路交互互通
-
-###               
-
-## **Fay数字人框架**
-
-![](readme/chat.png)
-
-![](readme/controller.png)
-
-![](readme/mcp.png)
-
-
-
-
-
-
-## **源码启动**
-
-
-### **环境** 
 - Python 3.12
+- Node.js 18+，用于运行 `fay-frontend`
+- Windows、macOS 或 Ubuntu
+- Ubuntu 需要先安装音频编译依赖：
 
-- Windows、macos、ubuntu
+```bash
+sudo apt update
+sudo apt install build-essential portaudio19-dev
+```
 
-- 注：ubuntu需要先安装gcc及portaudio
+## 后端启动
 
-- ````bash
-  sudo apt update
-  sudo apt install build-essential
-  sudo apt install portaudio19-dev
-  ````
+首次运行建议创建虚拟环境并安装依赖：
 
-  
-
-### **安装依赖**
-
-```shell
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+如果使用本地配置，将 `system.conf.bak` 复制为 `system.conf`，并按需配置 LLM、ASR、TTS、认证和 embedding 参数：
 
-### **快速启动**
-本地
-```shell
-python main.py start -config_center d19f7b0a-2b8a-4503-8c0d-1a587b90eb69  #使用公共资源，速度非常慢，建议更换成自己的key
-```
-镜像
-```shell
-https://www.compshare.cn/images/compshareImage-1cft3sk9gvta?ytag=GPU_fay
+```powershell
+Copy-Item system.conf.bak system.conf
+python main.py start
 ```
 
-### **个性化配置**
-+ 根目录system.conf.bak 重命名为system.conf，并配置里面的内容
+也可以使用配置中心启动：
 
-### **管理页面**
-+ 浏览器访问 http://127.0.0.1:5000
+```powershell
+python main.py start -config_center <配置中心项目ID>
+```
 
-## **高级玩法**
+默认服务端口：
 
-![](readme/interface.png)
+- Flask 管理接口：`http://127.0.0.1:5000`
+- MCP 管理服务：`http://127.0.0.1:5010`
+- 数字人 WebSocket：`10002`
+- 前端数据 WebSocket：`10003`
 
+## 前端启动
 
+```powershell
+cd fay-frontend
+npm install
+npm run dev
+```
 
-### ***使用数字人（非必须）***
-https://qqk9ntwbcit.feishu.cn/wiki/GHevwqxwfiX4hCk8yJCcoJ54nqg
+前端开发服务启动后，按终端输出的 Vite 地址访问。生产构建命令：
 
+```powershell
+npm run build
+npm run preview
+```
 
+前端默认通过相对路径访问 Flask API，并通过 `VITE_MCP_API_BASE_URL` 访问 MCP API。需要单独指定 MCP 地址时，可在前端环境变量中配置：
 
+```env
+VITE_MCP_API_BASE_URL=http://127.0.0.1:5010
+```
 
-### ***集成到自家产品（非必须）***
-https://qqk9ntwbcit.feishu.cn/wiki/Mcw3wbA3RiNZzwkexz6cnKCsnhh
+## 登录与用户管理
 
+认证开启后，系统会在没有管理员时创建默认管理员：
 
+```text
+用户名：admin
+密码：admin123
+```
 
-### **联系**
+首次进入后请在个人中心或管理员用户管理中修改密码。普通用户可注册账号，管理员可在用户管理页面维护用户、重置密码、启用或停用账号。
 
-**交流群及资料教程**关注公众号 **fay数字人**（**请先star本仓库**）
+## 知识库与 RAG
 
-![](readme/gzh.png)
+知识库文件默认存放在 `library/`。管理员可以在前端“知识库”页面上传 Word、文本等文档，然后执行 ingest，将文档切分、向量化并写入向量库。之后 LLM 可通过 RAG 查询相关内容。
 
-**商务联系**
+MCP 中常见知识库工具含义：
 
-qq467665317
+- `ingest`：导入并向量化知识库文件。
+- `query`：按问题检索相关知识片段。
+- `status`：查看知识库索引、文件和服务状态。
 
+如果对应的 RAG MCP server 未启动或未连接，RAG 工具不会参与回答。
 
-## **致谢**
+## 本地 Embedding 模型
 
-感谢以下开源项目为 Fay 提供的技术支持：
+推荐将本地模型放在：
 
-- [openclaw](https://github.com/openclaw/openclaw) - 提供记忆机制及skills设计的参考
-- [OpenAI Codex](https://github.com/openai/codex) - 提供稳定的工具调用能力的参考
-- [FunASR](https://github.com/modelscope/FunASR) - 提供语音识别（ASR）能力
+```text
+model/bge-large-zh-v1.5
+```
+
+然后在配置中将 embedding 模型指向该路径，或使用环境变量：
+
+```powershell
+$env:EMBEDDING_MODEL_PATH="model/bge-large-zh-v1.5"
+python main.py start
+```
+
+服务启动日志中出现 embedding 维度初始化和预热完成，说明本地 embedding 服务已加载。`bge-large-zh-v1.5` 的常见向量维度为 1024。
+
+## 常用开发命令
+
+```powershell
+# 后端启动
+python main.py start
+
+# 前端开发
+cd fay-frontend
+npm run dev
+
+# 前端构建
+npm run build
+
+# 前端测试
+npm run test
+```
+
+## Git 与安全注意事项
+
+不要提交密钥、个人配置、本地模型、运行日志、缓存、知识库原文或构建产物。重点避免提交：
+
+```text
+system.conf
+.env
+memory/
+logs/
+cache_data/
+library/
+model/
+fay-frontend/node_modules/
+fay-frontend/dist/
+```
+
+提交前建议检查：
+
+```powershell
+git status --short
+git diff --cached --name-status
+git diff --cached --name-only -G "TOKEN|PASSWORD|PRIVATE"
+```
+
+## 致谢
+
+感谢 Fay 原项目及其相关开源生态提供的数字人、语音、MCP 和工具调用基础能力。本仓库在此基础上补充了面向本地知识库和多用户管理的应用层能力。
