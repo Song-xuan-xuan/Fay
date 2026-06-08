@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../stores/auth';
 
 function getMcpApiBaseUrl() {
   const configured = import.meta.env.VITE_MCP_API_BASE_URL;
@@ -12,6 +13,15 @@ const mcpRequest = axios.create({
   baseURL: getMcpApiBaseUrl(),
   timeout: 15000,
   withCredentials: false,
+});
+
+mcpRequest.interceptors.request.use((config) => {
+  const authStore = useAuthStore();
+  if (authStore.token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${authStore.token}`;
+  }
+  return config;
 });
 
 mcpRequest.interceptors.response.use(

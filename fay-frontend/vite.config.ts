@@ -30,6 +30,10 @@ export default defineConfig(({ mode }) => {
           target: flaskTarget,
           changeOrigin: true,
         },
+        '/avatars': {
+          target: flaskTarget,
+          changeOrigin: true,
+        },
       },
     },
     define: {

@@ -1,6 +1,18 @@
 import request, { postLegacyData } from './request';
 import type { ExecutionStatus, MessageHistoryResponse, MessageRecord, SystemStatus, UserRecord } from '../types';
 
+export interface ChatSession {
+  id: number;
+  user_id: number;
+  username: string;
+  title: string;
+  started_at?: number;
+  last_active_at?: number;
+  message_count?: number;
+  source?: string;
+  deleted_at?: number | null;
+}
+
 interface RawMessageHistory {
   list?: MessageRecord[] | MessageRecord[][];
   total?: number;
@@ -11,8 +23,9 @@ export async function getMessageHistory(
   username: string,
   limit = 30,
   offset = 0,
+  sessionId: number | null = null,
 ): Promise<MessageHistoryResponse> {
-  const data = await postLegacyData<RawMessageHistory>('/api/get-msg', { username, limit, offset });
+  const data = await postLegacyData<RawMessageHistory>('/api/get-msg', { username, limit, offset, session_id: sessionId });
   const rawList = Array.isArray(data.list) ? data.list : [];
   const list = rawList.flat() as MessageRecord[];
   return {
@@ -22,24 +35,31 @@ export async function getMessageHistory(
   };
 }
 
-export function sendMessage(username: string, msg: string) {
-  return postLegacyData<{ result: string }>('/api/send', { username, msg });
+export function sendMessage(username: string, msg: string, sessionId: number | null = null) {
+  return postLegacyData<{ result: string }>('/api/send', { username, msg, session_id: sessionId });
+}
+
+export async function getChatSessions(username?: string): Promise<ChatSession[]> {
+  const params = username ? { username } : undefined;
+  const data = await request.get('/api/chat-sessions', { params }) as { list?: ChatSession[] };
+  return Array.isArray(data.list) ? data.list : [];
+}
+
+export function createChatSession(title: string, username?: string) {
+  return request.post('/api/chat-sessions', { title, username }) as Promise<{ success: boolean; session: ChatSession }>;
+}
+
+export function renameChatSession(id: number, title: string) {
+  return request.put(`/api/chat-sessions/${id}`, { title }) as Promise<{ success: boolean; session: ChatSession }>;
+}
+
+export function deleteChatSession(id: number, username?: string) {
+  const params = username ? { username } : undefined;
+  return request.delete(`/api/chat-sessions/${id}`, { params }) as Promise<{ success: boolean; deleted_messages: number }>;
 }
 
 export function getMessageById(id: number | string) {
   return request.post('/api/get-msg-by-id', { id }) as Promise<{ content: string }>;
-}
-
-export function adoptMessage(id: number | string) {
-  return request.post('/api/adopt-msg', { id }) as Promise<{ status: string; msg: string }>;
-}
-
-export function unadoptMessage(id: number | string) {
-  return request.post('/api/unadopt-msg', { id }) as Promise<{
-    status: string;
-    msg: string;
-    unadopted_ids?: Array<number | string>;
-  }>;
 }
 
 export async function getMemberList(): Promise<UserRecord[]> {

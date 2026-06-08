@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { getAudioConfig, getMemberList, getSystemStatus } from '../api/message';
+import { getAudioConfig, getChatSessions, getMemberList, getSystemStatus, type ChatSession } from '../api/message';
 import { getData, getRunStatus, startLive as startLiveApi, stopLive as stopLiveApi, submitConfig } from '../api/setting';
 import type { LiveState, MessageRecord, SystemStatus, UserRecord, VoiceOption, WebsocketPayload } from '../types';
 import { buildAudioConfigPatch, toggleAudioFlag, type AudioConfig } from '../utils/audioControls';
+import { useAuthStore } from './auth';
 
 function normalizeVoice(voice: VoiceOption) {
   return {
@@ -13,6 +14,7 @@ function normalizeVoice(voice: VoiceOption) {
 }
 
 export const useAppStore = defineStore('app', () => {
+  const authStore = useAuthStore();
   const users = ref<UserRecord[]>([]);
   const selectedUser = ref<UserRecord | null>(null);
   const liveState = ref<LiveState>(0);
@@ -23,12 +25,44 @@ export const useAppStore = defineStore('app', () => {
   const panelMsg = ref('');
   const latestPanelReply = ref<MessageRecord | null>(null);
   const panelReplySeq = ref(0);
+  const sessions = ref<ChatSession[]>([]);
+  const selectedSession = ref<ChatSession | null>(null);
 
-  async function loadUsers() {
-    users.value = await getMemberList();
+  function ownUserRecord() {
+    const current = authStore.user;
+    return current ? [current.uid, current.username, current.avatar_path || ''] as UserRecord : null;
+  }
+
+  function syncSelectedUser() {
+    const ownUser = ownUserRecord();
+    if (ownUser && !authStore.isAdmin) {
+      users.value = [ownUser];
+      selectedUser.value = ownUser;
+      return;
+    }
     if (!selectedUser.value && users.value.length > 0) {
       selectedUser.value = users.value[0];
     }
+  }
+
+  async function loadUsers() {
+    users.value = await getMemberList();
+    syncSelectedUser();
+  }
+
+  function setSelectedSession(session: ChatSession | null) {
+    selectedSession.value = session;
+  }
+
+  async function loadSessions(username?: string) {
+    sessions.value = await getChatSessions(username);
+    if (selectedSession.value) {
+      selectedSession.value = sessions.value.find((item) => item.id === selectedSession.value?.id) || null;
+    }
+    if (!selectedSession.value && sessions.value.length > 0) {
+      selectedSession.value = sessions.value[0];
+    }
+    return sessions.value;
   }
 
   async function loadBootstrapData() {
@@ -38,7 +72,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function refreshSystemStatus() {
-    const username = selectedUser.value?.[1] || '';
+    const username = selectedUser.value?.[1] || authStore.user?.username || '';
     systemStatus.value = await getSystemStatus(username);
   }
 
@@ -81,12 +115,15 @@ export const useAppStore = defineStore('app', () => {
       voiceList.value = payload.voiceList.map(normalizeVoice);
     }
     if (payload.panelReply !== undefined) {
+      const username = payload.panelReply.username;
+      if (!authStore.isAdmin && username !== authStore.user?.username) {
+        return;
+      }
       latestPanelReply.value = payload.panelReply;
       panelReplySeq.value += 1;
-      const username = payload.panelReply.username;
       const uid = payload.panelReply.uid || Date.now();
       if (username && !users.value.some((user) => user[1] === username)) {
-        users.value.push([uid, username] as UserRecord);
+        users.value.push([uid, username, ''] as UserRecord);
       }
     }
   }
@@ -102,7 +139,11 @@ export const useAppStore = defineStore('app', () => {
     panelMsg,
     latestPanelReply,
     panelReplySeq,
+    sessions,
+    selectedSession,
     loadUsers,
+    loadSessions,
+    setSelectedSession,
     loadBootstrapData,
     refreshSystemStatus,
     refreshAudioConfig,

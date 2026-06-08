@@ -22,6 +22,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  align-items: stretch;
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
@@ -43,17 +44,21 @@
 .message-row {
   position: relative;
   display: flex;
+  width: fit-content;
+  min-width: 0;
   gap: 12px;
   max-width: 70%;
+  align-self: flex-start;
 }
 
-.message-row.selected .bubble {
+.message-row.selected .message-bubble {
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
 
 .message-row.from-user {
   align-self: flex-end;
   flex-direction: row-reverse;
+  margin-left: auto;
 }
 
 .share-check {
@@ -93,7 +98,9 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.bubble {
+.message-bubble {
+  max-width: 100%;
+  min-width: 0;
   border: none;
   border-radius: 18px;
   background: rgba(0, 0, 0, 0.05);
@@ -103,26 +110,26 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.from-user .bubble {
+.from-user .message-bubble {
   background: var(--color-accent);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
 }
 
-.bubble p {
+.message-bubble p {
   margin-bottom: 6px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.bubble time {
+.message-bubble time {
   display: block;
   opacity: 0.6;
   font-size: 12px;
   margin-top: 4px;
 }
 
-.from-user .bubble time {
+.from-user .message-bubble time {
   color: rgba(255, 255, 255, 0.8);
 }
 
@@ -188,6 +195,16 @@
   height: 90px;
   border-radius: 8px;
   object-fit: cover;
+}
+
+.message-image-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border);
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 /* 输入框 */

@@ -10,6 +10,10 @@ from urllib.parse import urlparse
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 
+from core import audit_service
+from core import auth_service
+from utils import util
+
 
 KB_LIBRARY_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'library'))
 KB_ALLOWED_EXTENSIONS = {'.docx', '.pdf'}
@@ -61,6 +65,25 @@ def _require_kb_write_access():
     if _is_local_hostname(request.remote_addr or ''):
         return None
     return jsonify({"success": False, "error": "知识库写接口仅允许本机或同源请求"}), 403
+
+
+def _client_ip() -> str:
+    return request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+
+
+def _audit_knowledge_action(action: str, resource: str = '', details: Optional[Dict[str, Any]] = None):
+    try:
+        current = auth_service.current_user() or {}
+        audit_service.new_instance().log(
+            user_id=current.get('uid', 0),
+            username=current.get('username', ''),
+            action=action,
+            resource=resource,
+            details=details or {},
+            ip_address=_client_ip(),
+        )
+    except Exception as exc:
+        util.log(1, f"记录知识库审计日志失败: {exc}")
 
 
 def _ensure_kb_library_dir() -> str:
@@ -166,6 +189,12 @@ class KnowledgeBaseRoutes:
                 errors.append({"name": item.filename, "error": str(exc)})
 
         status = 200 if saved else 400
+        if saved:
+            _audit_knowledge_action(
+                'knowledge_upload',
+                'library',
+                {'files': [item['name'] for item in saved], 'count': len(saved)},
+            )
         return jsonify({
             "success": bool(saved),
             "library_dir": _ensure_kb_library_dir(),
@@ -184,7 +213,9 @@ class KnowledgeBaseRoutes:
         if not os.path.exists(target):
             return jsonify({"success": False, "error": "文件不存在"}), 404
         os.remove(target)
-        return jsonify({"success": True, "deleted": os.path.basename(target)})
+        deleted = os.path.basename(target)
+        _audit_knowledge_action('knowledge_delete', f'file={deleted}', {'filename': deleted})
+        return jsonify({"success": True, "deleted": deleted})
 
     def ingest(self):
         access_error = _require_kb_write_access()

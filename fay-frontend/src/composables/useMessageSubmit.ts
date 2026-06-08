@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { sendMessage as sendMessageApi } from '../api/message';
+import { useAuthStore } from '../stores/auth';
 
 const MESSAGE_REFRESH_DELAY_MS = 500;
 const ERROR_PREVIEW_LENGTH = 100;
@@ -17,6 +18,7 @@ interface UploadResponse {
 
 interface MessageSubmitOptions {
   selectedUsername: ComputedRef<string>;
+  selectedSessionId: ComputedRef<number | null>;
   newMessage: Ref<string>;
   pendingImages: Ref<File[]>;
   getLiveState: () => number;
@@ -66,14 +68,18 @@ async function uploadPendingImages(files: File[], username: string): Promise<str
   }
 }
 
-async function sendMultimodalMessage(username: string, msg: string, imageUrls: string[]): Promise<void> {
+async function sendMultimodalMessage(username: string, msg: string, imageUrls: string[], sessionId: number | null, token: string): Promise<void> {
   const response = await fetch('/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       model: 'fay',
       messages: [{ role: 'user', content: buildMultimodalContent(msg, imageUrls) }],
       user: username,
+      session_id: sessionId,
       stream: false,
     }),
   });
@@ -86,9 +92,12 @@ async function sendMultimodalMessage(username: string, msg: string, imageUrls: s
 }
 
 export function useMessageSubmit(options: MessageSubmitOptions) {
+  const authStore = useAuthStore();
+
   async function submitMessage() {
     const msg = options.newMessage.value.trim();
     const username = options.selectedUsername.value;
+    const sessionId = options.selectedSessionId.value;
     const imageUrls = await validateAndUpload({
       files: options.pendingImages.value,
       username,
@@ -104,11 +113,11 @@ export function useMessageSubmit(options: MessageSubmitOptions) {
 
     try {
       if (imageUrls.length > 0) {
-        await sendMultimodalMessage(username, msg, imageUrls);
+        await sendMultimodalMessage(username, msg, imageUrls, sessionId, authStore.token);
         setTimeout(options.reloadMessages, MESSAGE_REFRESH_DELAY_MS);
         return;
       }
-      await sendMessageApi(username, msg);
+      await sendMessageApi(username, msg, sessionId);
     } catch (error) {
       console.error('Send message error:', error);
       ElMessage.error(error instanceof Error ? error.message : '发送消息失败');

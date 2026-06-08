@@ -1,6 +1,6 @@
 export type LiveState = 0 | 1 | 2 | 3;
 
-export type UserRecord = [number, string] & {
+export type UserRecord = [number, string, string?] & {
   showDelete?: boolean;
 };
 
@@ -11,6 +11,7 @@ export interface MessageRecord {
   timetext?: string;
   username?: string;
   uid?: number;
+  session_id?: number;
   images?: string[];
   is_adopted?: 0 | 1;
   thinkExpanded?: boolean;

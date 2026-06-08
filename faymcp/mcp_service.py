@@ -15,6 +15,8 @@ from flask_cors import CORS
 from faymcp.mcp_client import McpClient
 from faymcp import tool_registry, prestart_registry, resource_registry
 from faymcp.kb_routes import register_kb_routes
+from core import audit_service
+from core import auth_service
 from utils import util
 
 
@@ -24,6 +26,47 @@ app = Flask(__name__)
 
 # 添加CORS支持，允许所有来源的跨域请求
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+
+def _is_management_api_path(path: str) -> bool:
+    return path.startswith('/api/mcp/') or path.startswith('/api/kb/')
+
+
+def _client_ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+
+
+def _audit_management_action(action, resource='', details=None):
+    try:
+        current = auth_service.current_user() or {}
+        audit_service.new_instance().log(
+            user_id=current.get('uid', 0),
+            username=current.get('username', ''),
+            action=action,
+            resource=resource,
+            details=details or {},
+            ip_address=_client_ip(),
+        )
+    except Exception as exc:
+        util.log(1, f"记录 MCP 审计日志失败: {exc}")
+
+
+@app.before_request
+def require_management_admin():
+    if not _is_management_api_path(request.path) or not auth_service.auth_enabled():
+        return None
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'error': '未授权'}), 401
+    token = auth_header.split(' ', 1)[1].strip()
+    try:
+        current_user = auth_service.verify_token(token)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 401
+    request.current_user = current_user
+    if current_user.get('role') != 'admin':
+        return jsonify({'error': '权限不足'}), 403
+    return None
 
 
 # MCP服务器数据文件路径
@@ -545,6 +588,15 @@ def add_mcp_server():
     # 添加到服务器列表
     mcp_servers.append(new_server)
     save_mcp_servers(mcp_servers)
+    _audit_management_action(
+        'mcp_server_create',
+        f"server_id={new_server['id']}",
+        {
+            'name': new_server.get('name'),
+            'transport': new_server.get('transport'),
+            'autostart': bool(new_server.get('autostart', False)),
+        },
+    )
 
     # 补充预启动标记，便于前端立即渲染
     tools_list = _attach_prestart_metadata(new_server["id"], tools_list)
@@ -785,6 +837,11 @@ def delete_server(server_id):
             deleted_server = mcp_servers.pop(i)
             tool_registry.remove_server(server_id)
             save_mcp_servers(mcp_servers)
+            _audit_management_action(
+                'mcp_server_delete',
+                f'server_id={server_id}',
+                {'name': deleted_server.get('name')},
+            )
             return jsonify({"message": f"服务器 {deleted_server['name']} 已删除", "server": deleted_server})
     return jsonify({"error": "服务器未找到"}), 404
 
@@ -1147,9 +1204,14 @@ def toggle_tool_state(server_id, tool_name):
         # 设置工具状态
         set_tool_state(server_id, tool_name, enabled)
         tool_registry.update_tool_enabled(server_id, tool_name, enabled)
-        
+
         util.log(1, f"工具 {tool_name} 在服务器 {server['name']} 上已{'启用' if enabled else '禁用'}")
-        
+        _audit_management_action(
+            'mcp_tool_enable' if enabled else 'mcp_tool_disable',
+            f'server_id={server_id};tool={tool_name}',
+            {'server_name': server.get('name'), 'tool_name': tool_name},
+        )
+
         updated_tools = tool_registry.get_server_tools(
             server_id,
             include_disabled=True,

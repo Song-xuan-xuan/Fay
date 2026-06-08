@@ -59,6 +59,17 @@ def _maybe_run_mcp_stdio_runner(argv):
     runpy.run_path(script_path, run_name="__main__")
     raise SystemExit(0)
 
+
+def _maybe_run_database_migration(argv):
+    if "--migrate" not in argv:
+        return
+    import importlib
+
+    migration = importlib.import_module("migrations.001_add_auth")
+    result = migration.run()
+    print(f"数据库迁移完成: {result}")
+    raise SystemExit(0)
+
 def _extract_config_center_id(argv):
     for i, arg in enumerate(argv):
         if arg in ("-config_center", "--config_center", "-center_config", "--center_config"):
@@ -74,6 +85,7 @@ def _preload_config_center(argv):
 
 _preload_config_center(sys.argv[1:])
 _maybe_run_mcp_stdio_runner(sys.argv[1:])
+_maybe_run_database_migration(sys.argv[1:])
 
 import time
 import psutil
@@ -280,6 +292,10 @@ if __name__ == '__main__':
     #init_db
     contentdb = content_db.new_instance()
     contentdb.init_db()
+
+    from core import auth_bootstrap
+    auth_bootstrap.ensure_default_admin()
+    auth_bootstrap.log_auth_status()
 
     #启动数字人接口服务
     ws_server = wsa_server.new_instance(port=10002)

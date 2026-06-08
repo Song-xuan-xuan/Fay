@@ -3,6 +3,11 @@
   grid-template-columns: 240px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--color-bg-secondary);
+  transition: grid-template-columns 0.2s ease;
+}
+
+.shell.sidebar-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .sidebar {
@@ -19,12 +24,33 @@
 .brand {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-height: 60px;
 }
 
-.brand img {
+.brand-logo {
   max-width: 140px;
   height: auto;
+  transition: opacity 0.2s ease, width 0.2s ease;
+}
+
+.sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .nav-list {
@@ -61,6 +87,33 @@
   background: var(--color-accent-hover);
 }
 
+.shell.sidebar-collapsed .sidebar {
+  gap: 24px;
+  padding: 24px 12px;
+}
+
+.shell.sidebar-collapsed .brand {
+  justify-content: center;
+}
+
+.shell.sidebar-collapsed .brand-logo {
+  width: 0;
+  opacity: 0;
+}
+
+.shell.sidebar-collapsed .nav-item,
+.shell.sidebar-collapsed .operator,
+.shell.sidebar-collapsed .logout-action {
+  justify-content: center;
+  padding: 0;
+}
+
+.shell.sidebar-collapsed .nav-item span,
+.shell.sidebar-collapsed .operator span,
+.shell.sidebar-collapsed .logout-action span {
+  display: none;
+}
+
 .sidebar-footer {
   margin-top: auto;
 }
@@ -69,6 +122,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-height: 40px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
@@ -77,6 +131,22 @@
   background: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.operator:hover,
+.operator:focus-visible {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.operator-avatar {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .workspace {

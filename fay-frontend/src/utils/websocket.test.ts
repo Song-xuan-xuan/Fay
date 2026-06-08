@@ -50,4 +50,20 @@ describe('ReconnectingSocket', () => {
       { Username: 'Bob' },
     ]);
   });
+
+  it('includes the latest auth token in registration messages', () => {
+    let token = 'token-1';
+    const socket = new ReconnectingSocket('ws://localhost:10003', () => undefined, 5000, () => token);
+
+    socket.connect();
+    socket.registerUsername('Alice');
+    FakeWebSocket.instances[0].open();
+    token = 'token-2';
+    socket.registerUsername('Alice');
+
+    expect(FakeWebSocket.instances[0].sent.map((message) => JSON.parse(message))).toEqual([
+      { Username: 'Alice', token: 'token-1' },
+      { Username: 'Alice', token: 'token-2' },
+    ]);
+  });
 });

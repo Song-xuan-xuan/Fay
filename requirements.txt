@@ -21,6 +21,8 @@ tenacity==8.2.3
 pygame
 scipy
 flask-httpauth
+bcrypt
+PyJWT
 opencv-python
 psutil
 langchain

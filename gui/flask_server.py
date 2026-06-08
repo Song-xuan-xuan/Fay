@@ -41,6 +41,11 @@ from core import fay_core
 from core import content_db
 from core.interact import Interact
 from core import member_db
+from core import auth_service
+from core import audit_service
+from gui.auth_routes import register_auth_routes
+from gui.avatar_routes import register_avatar_routes
+from gui.dashboard_routes import register_dashboard_routes
 import fay_booter
 from flask_httpauth import HTTPBasicAuth
 from core import qa_service
@@ -64,6 +69,9 @@ __app.config['PROPAGATE_EXCEPTIONS'] = True
 
 auth = HTTPBasicAuth()
 CORS(__app, supports_credentials=True)
+register_auth_routes(__app)
+register_avatar_routes(__app)
+register_dashboard_routes(__app)
 
 def load_users():
     try:
@@ -146,6 +154,61 @@ def _build_models_url(base_url: str) -> str:
     if url.endswith("/v1"):
         return url + "/models"
     return url + "/v1/models"
+
+
+def _forbid_unless_self_or_admin(username):
+    current = auth_service.current_user()
+    if not current:
+        return None
+    if current.get('role') == 'admin':
+        return None
+    if username and current.get('username') == username:
+        return None
+    return jsonify({'error': '权限不足'}), 403
+
+
+def _client_ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+
+
+def _log_admin_action(action, resource='', details=None):
+    try:
+        current = auth_service.current_user() or {}
+        audit_service.new_instance().log(
+            user_id=current.get('uid', 0),
+            username=current.get('username', ''),
+            action=action,
+            resource=resource,
+            details=details or {},
+            ip_address=_client_ip(),
+        )
+    except Exception as exc:
+        util.log(1, f'记录管理审计日志失败: {exc}')
+
+
+def _session_user_record(user):
+    return [user[0], user[1], user[7] if len(user) > 7 else '']
+
+
+def _get_session_user(username=None):
+    current = auth_service.current_user()
+    if current and current.get('role') != 'admin':
+        username = current.get('username')
+    username = username or (current or {}).get('username') or 'User'
+    user = member_db.new_instance().get_user_by_username(username, include_hash=False)
+    return user
+
+
+def _forbid_unless_session_owner(session_id, username=None):
+    current = auth_service.current_user()
+    if not current or current.get('role') == 'admin':
+        return None
+    if int(session_id or 0) == 0:
+        return _forbid_unless_self_or_admin(username)
+    session = content_db.new_instance().get_chat_session(session_id)
+    if session and int(session.get('user_id') or 0) == int(current.get('uid') or 0):
+        return None
+    return jsonify({'error': '权限不足'}), 403
 
 
 def _normalize_llm_proxy_role(role):
@@ -422,6 +485,8 @@ def _build_langchain_base_url(base_url: str) -> str:
     return url
 
 @__app.route('/api/submit', methods=['post'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_submit():
     data = request.values.get('data')
     if not data:
@@ -448,6 +513,7 @@ def api_submit():
 
         config_util.save_config(existing_config)
         config_util.load_config(force_reload=True)  # 强制重新加载配置
+        _log_admin_action('config_update', 'config.json', {'keys': sorted(config_data['config'].keys())})
 
         return jsonify({'result': 'successful'})
     except json.JSONDecodeError:
@@ -459,6 +525,8 @@ def api_submit():
 
 
 @__app.route('/api/get-data', methods=['post'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_get_data():
     # 获取配置和语音列表
     try:
@@ -586,28 +654,115 @@ def api_get_data():
         return jsonify({'result': 'error', 'message': f'获取数据时出错: {e}'}), 500
 
 @__app.route('/api/start-live', methods=['post'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_start_live():
     # 启动
     try:
         fay_booter.start()
         gsleep(1)
         wsa_server.get_web_instance().add_cmd({"liveState": 1})
+        _log_admin_action('service_start', 'live')
         return '{"result":"successful"}'
     except Exception as e:
         return jsonify({'result': 'error', 'message': f'启动时出错: {e}'}), 500
 
 @__app.route('/api/stop-live', methods=['post'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_stop_live():
     # 停止
     try:
         fay_booter.stop()
         gsleep(1)
         wsa_server.get_web_instance().add_cmd({"liveState": 0})
+        _log_admin_action('service_stop', 'live')
         return '{"result":"successful"}'
     except Exception as e:
         return jsonify({'result': 'error', 'message': f'停止时出错: {e}'}), 500
 
+@__app.route('/api/chat-sessions', methods=['GET'])
+@auth_service.require_auth
+def api_list_chat_sessions():
+    try:
+        user = _get_session_user(request.args.get('username'))
+        if not user:
+            return jsonify({'list': []})
+        forbidden = _forbid_unless_self_or_admin(user['username'])
+        if forbidden:
+            return forbidden
+        sessions = content_db.new_instance().list_chat_sessions(user['username'], user['uid'])
+        return jsonify({'list': sessions})
+    except Exception as e:
+        return jsonify({'list': [], 'message': f'获取会话列表时出错: {e}'}), 500
+
+
+@__app.route('/api/chat-sessions', methods=['POST'])
+@auth_service.require_auth
+def api_create_chat_session():
+    try:
+        data = request.get_json(silent=True) or {}
+        user = _get_session_user(data.get('username'))
+        if not user:
+            return jsonify({'error': '用户不存在'}), 404
+        forbidden = _forbid_unless_self_or_admin(user['username'])
+        if forbidden:
+            return forbidden
+        title = str(data.get('title') or '新会话').strip() or '新会话'
+        session = content_db.new_instance().create_chat_session(user['username'], user['uid'], title)
+        return jsonify({'success': True, 'session': session})
+    except Exception as e:
+        return jsonify({'error': f'创建会话时出错: {e}'}), 500
+
+
+@__app.route('/api/chat-sessions/<int:session_id>', methods=['PUT'])
+@auth_service.require_auth
+def api_rename_chat_session(session_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        title = str(data.get('title') or '').strip()
+        if not title:
+            return jsonify({'error': '会话名称不能为空'}), 400
+        session = content_db.new_instance().get_chat_session(session_id)
+        if not session:
+            return jsonify({'error': '会话不存在'}), 404
+        forbidden = _forbid_unless_session_owner(session_id, session.get('username'))
+        if forbidden:
+            return forbidden
+        session = content_db.new_instance().rename_chat_session(session_id, title)
+        return jsonify({'success': True, 'session': session})
+    except Exception as e:
+        return jsonify({'error': f'重命名会话时出错: {e}'}), 500
+
+
+@__app.route('/api/chat-sessions/<int:session_id>', methods=['DELETE'])
+@auth_service.require_auth
+def api_delete_chat_session(session_id):
+    try:
+        if session_id == 0:
+            user = _get_session_user(request.args.get('username'))
+            if not user:
+                return jsonify({'error': '用户不存在'}), 404
+            forbidden = _forbid_unless_self_or_admin(user['username'])
+            if forbidden:
+                return forbidden
+            deleted = content_db.new_instance().delete_chat_session(0, user['username'], user['uid'])
+            return jsonify({'success': True, 'deleted_messages': deleted})
+
+        session = content_db.new_instance().get_chat_session(session_id)
+        if not session:
+            return jsonify({'error': '会话不存在'}), 404
+        forbidden = _forbid_unless_session_owner(session_id, session.get('username'))
+        if forbidden:
+            return forbidden
+        deleted = content_db.new_instance().delete_chat_session(session_id)
+        return jsonify({'success': True, 'deleted_messages': deleted})
+    except Exception as e:
+        return jsonify({'error': f'删除会话时出错: {e}'}), 500
+
+
 @__app.route('/api/send', methods=['post'])
+@auth_service.require_auth
 def api_send():
     # 接收前端发送的消息
     data = request.values.get('data')
@@ -617,11 +772,19 @@ def api_send():
         info = json.loads(data)
         username = info.get('username')
         msg = info.get('msg')
+        session_id = info.get('session_id')
         if not username or not msg:
             return jsonify({'result': 'error', 'message': '用户名和消息内容不能为空'})
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
+        if session_id is not None:
+            forbidden = _forbid_unless_session_owner(session_id, username)
+            if forbidden:
+                return forbidden
         msg = msg.strip()
-      
-        interact = Interact("text", 1, {'user': username, 'msg': msg})
+
+        interact = Interact("text", 1, {'user': username, 'msg': msg, 'session_id': session_id})
         util.printInfo(1, username, '[文字发送按钮]{}'.format(interact.data["msg"]), time.time())
         fay_booter.feiFei.on_interact(interact)
         return '{"result":"successful"}'
@@ -632,6 +795,7 @@ def api_send():
 
 # 获取指定用户的消息记录（支持分页）
 @__app.route('/api/get-msg', methods=['post'])
+@auth_service.require_auth
 def api_get_Msg():
     try:
         data = request.form.get('data')
@@ -642,8 +806,16 @@ def api_get_Msg():
         if not isinstance(data, dict):
             data = {}
         username = data.get("username")
+        session_id = data.get("session_id")
         limit = data.get("limit", 30)  # 默认每页30条
         offset = data.get("offset", 0)  # 默认从0开始
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
+        if session_id is not None:
+            forbidden = _forbid_unless_session_owner(session_id, username)
+            if forbidden:
+                return forbidden
         contentdb = content_db.new_instance()
         uid = 0
         if username:
@@ -651,8 +823,8 @@ def api_get_Msg():
             if uid == 0:
                 return json.dumps({'list': [], 'total': 0, 'hasMore': False})
         # 获取总数用于判断是否还有更多
-        total = contentdb.get_message_count(uid)
-        list = contentdb.get_list('all', 'desc', limit, uid, offset)
+        total = contentdb.get_message_count(uid, session_id=session_id)
+        list = contentdb.get_list('all', 'desc', limit, uid, offset, session_id=session_id)
         relist = []
         i = len(list) - 1
         while i >= 0:
@@ -666,7 +838,18 @@ def api_get_Msg():
                     image_urls = json.loads(list[i][8])
                 except Exception:
                     image_urls = []
-            relist.append(dict(type=list[i][0], way=list[i][1], content=list[i][2], createtime=list[i][3], timetext=timetext, username=list[i][5], id=list[i][6], is_adopted=list[i][7], images=image_urls))
+            relist.append(dict(
+                type=list[i][0],
+                way=list[i][1],
+                content=list[i][2],
+                createtime=list[i][3],
+                timetext=timetext,
+                username=list[i][5],
+                id=list[i][6],
+                is_adopted=list[i][7],
+                images=image_urls,
+                session_id=list[i][9] if len(list[i]) > 9 and list[i][9] is not None else 0,
+            ))
             i -= 1
         if fay_booter.is_running():
             wsa_server.get_web_instance().add_cmd({"liveState": 1})
@@ -679,6 +862,7 @@ def api_get_Msg():
 
 # 根据ID获取单条消息
 @__app.route('/api/get-msg-by-id', methods=['post'])
+@auth_service.require_auth
 def api_get_msg_by_id():
     try:
         data = request.get_json(silent=True) or {}
@@ -687,6 +871,9 @@ def api_get_msg_by_id():
             return jsonify({'content': ''})
         record = content_db.new_instance().get_content_by_id(msg_id)
         if record:
+            forbidden = _forbid_unless_self_or_admin(record[5])
+            if forbidden:
+                return forbidden
             return jsonify({'content': record[3]})
         return jsonify({'content': ''})
     except Exception as e:
@@ -783,6 +970,7 @@ def api_v1_models():
 #文字沟通接口
 @__app.route('/v1/chat/completions', methods=['post'])
 @__app.route('/api/send/v1/chat/completions', methods=['post'])
+@auth_service.require_auth
 def api_send_v1_chat_completions():
     # 处理聊天完成请求
     data = request.get_json()
@@ -855,6 +1043,17 @@ def api_send_v1_chat_completions():
             if auth_header.startswith("Bearer "):
                 username = auth_header[7:].strip()
         username = username or "User"
+        current = auth_service.current_user()
+        if current and current.get('role') != 'admin':
+            username = current.get('username') or username
+        session_id = data.get('session_id')
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
+        if session_id is not None:
+            forbidden = _forbid_unless_session_owner(session_id, username)
+            if forbidden:
+                return forbidden
 
         # 解析 messages，支持多模态内容
         messages = data.get("messages")
@@ -910,7 +1109,8 @@ def api_send_v1_chat_completions():
                 'images': image_urls,  # 新增：图片列表
                 'observation': str(observation),
                 'stream': bool(stream_requested),
-                'no_reply': True
+                'no_reply': True,
+                'session_id': session_id
             })
             util.printInfo(1, username, '[text chat no_reply]{}'.format(interact.data["msg"]), time.time())
             fay_booter.feiFei.on_interact(interact)
@@ -971,7 +1171,8 @@ def api_send_v1_chat_completions():
                 'msg': last_content,
                 'images': image_urls,  # 新增：图片列表
                 'observation': str(observation),
-                'stream': True
+                'stream': True,
+                'session_id': session_id
             })
             util.printInfo(1, username, '[文字沟通接口(流式)]{}'.format(interact.data["msg"]), time.time())
             fay_booter.feiFei.on_interact(interact)
@@ -982,7 +1183,8 @@ def api_send_v1_chat_completions():
                 'msg': last_content,
                 'images': image_urls,  # 新增：图片列表
                 'observation': str(observation),
-                'stream': False
+                'stream': False,
+                'session_id': session_id
             })
             util.printInfo(1, username, '[文字沟通接口(非流式)]{}'.format(interact.data["msg"]), time.time())
             fay_booter.feiFei.on_interact(interact)
@@ -991,16 +1193,21 @@ def api_send_v1_chat_completions():
         return jsonify({'error': f'处理请求时出错: {e}'}), 500
 
 @__app.route('/api/get-member-list', methods=['post'])
+@auth_service.require_auth
 def api_get_Member_list():
     # 获取成员列表
     try:
         memberdb = member_db.new_instance()
         list = memberdb.get_all_users()
-        return json.dumps({'list': list})
+        current = auth_service.current_user()
+        if current and current.get('role') != 'admin':
+            list = [user for user in list if user[1] == current.get('username')]
+        return jsonify({'list': [_session_user_record(user) for user in list]})
     except Exception as e:
         return jsonify({'list': [], 'message': f'获取成员列表时出错: {e}'}), 500
-
 @__app.route('/api/add-user', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_add_user():
     """添加新用户"""
     try:
@@ -1047,6 +1254,8 @@ def api_get_run_status():
         return jsonify({'status': False, 'message': f'获取运行状态时出错: {e}'}), 500
 
 @__app.route('/api/delete-user', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_delete_user():
     """删除用户及其所有数据（聊天记录、记忆文件）"""
     try:
@@ -1112,6 +1321,7 @@ def api_delete_user():
         return jsonify({'success': False, 'message': f'删除用户时出错: {e}'}), 500
 
 @__app.route('/api/get-user-extra-info', methods=['POST'])
+@auth_service.require_auth
 def api_get_user_extra_info():
     """获取用户补充信息"""
     try:
@@ -1120,12 +1330,16 @@ def api_get_user_extra_info():
             return jsonify({'success': False, 'message': '缺少用户名参数'}), 400
 
         username = data['username']
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         extra_info = member_db.new_instance().get_extra_info(username)
         return jsonify({'success': True, 'extra_info': extra_info})
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取补充信息时出错: {e}'}), 500
 
 @__app.route('/api/update-user-extra-info', methods=['POST'])
+@auth_service.require_auth
 def api_update_user_extra_info():
     """更新用户补充信息"""
     try:
@@ -1134,6 +1348,9 @@ def api_update_user_extra_info():
             return jsonify({'success': False, 'message': '缺少用户名参数'}), 400
 
         username = data['username']
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         extra_info = data.get('extra_info', '')
         member_db.new_instance().update_extra_info(username, extra_info)
         return jsonify({'success': True, 'message': '补充信息已更新'})
@@ -1141,6 +1358,7 @@ def api_update_user_extra_info():
         return jsonify({'success': False, 'message': f'更新补充信息时出错: {e}'}), 500
 
 @__app.route('/api/get-user-portrait', methods=['POST'])
+@auth_service.require_auth
 def api_get_user_portrait():
     """获取用户画像"""
     try:
@@ -1149,12 +1367,16 @@ def api_get_user_portrait():
             return jsonify({'success': False, 'message': '缺少用户名参数'}), 400
 
         username = data['username']
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         user_portrait = member_db.new_instance().get_user_portrait(username)
         return jsonify({'success': True, 'user_portrait': user_portrait})
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取用户画像时出错: {e}'}), 500
 
 @__app.route('/api/update-user-portrait', methods=['POST'])
+@auth_service.require_auth
 def api_update_user_portrait():
     """更新用户画像"""
     try:
@@ -1163,6 +1385,9 @@ def api_update_user_portrait():
             return jsonify({'success': False, 'message': '缺少用户名参数'}), 400
 
         username = data['username']
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         user_portrait = data.get('user_portrait', '')
         member_db.new_instance().update_user_portrait(username, user_portrait)
         return jsonify({'success': True, 'message': '用户画像已更新'})
@@ -1221,6 +1446,8 @@ def api_get_audio_config():
         return jsonify({'mic': False, 'speaker': False, 'error': str(e)}), 500
 
 @__app.route('/api/adopt-msg', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def adopt_msg():
     # 采纳消息
     data = request.get_json()
@@ -1255,6 +1482,8 @@ def adopt_msg():
         return jsonify({'status':'error', 'msg': f'采纳消息时出错: {e}'}), 500
 
 @__app.route('/api/unadopt-msg', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def unadopt_msg():
     # 取消采纳消息
     data = request.get_json()
@@ -1446,6 +1675,13 @@ def live2d():
     except Exception as e:
         return f"Error loading Live2D page: {e}", 500
 
+@__app.route('/dashboard', methods=['get'])
+def dashboard():
+    try:
+        return __get_vue_app()
+    except Exception as e:
+        return f"Error loading dashboard page: {e}", 500
+
 @__app.route('/knowledge', methods=['get'])
 def knowledge():
     try:
@@ -1535,6 +1771,8 @@ def to_stop_talking():
 
 #麦克风开关
 @__app.route('/api/toggle-microphone', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_toggle_microphone():
     try:
         data = request.get_json()
@@ -1555,6 +1793,7 @@ def api_toggle_microphone():
         config_util.config['source']['record']['enabled'] = enabled
         config_util.save_config(config_util.config)
         config_util.load_config()
+        _log_admin_action('microphone_toggle', 'source.record.enabled', {'enabled': enabled})
 
         return jsonify({
             'status': 'success',
@@ -1661,6 +1900,8 @@ def transparent_pass():
     except Exception as e:
         return jsonify({'code': 500, 'message': f'\u51fa\u9519: {e}'}), 500
 @__app.route('/api/clear-memory', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_clear_memory():
     try:
         config_util.load_config()
@@ -1711,6 +1952,7 @@ def api_clear_memory():
             if error_messages:
                 message += "；部分失败：" + "、".join(error_messages)
             message += "，请重启应用使更改生效"
+            _log_admin_action('memory_clear', 'memory', {'cleared': success_messages, 'errors': error_messages})
             return jsonify({'success': True, 'message': message}), 200
         else:
             message = "清除失败：" + "、".join(error_messages)
@@ -1722,6 +1964,8 @@ def api_clear_memory():
 
 # 启动genagents_flask.py的API
 @__app.route('/api/start-genagents', methods=['POST'])
+@auth_service.require_auth
+@auth_service.require_role('admin')
 def api_start_genagents():
     try:
         config_util.load_config()
@@ -1808,7 +2052,8 @@ def api_start_genagents():
         monitor_thread.start()
         
         util.log(1, f"已启动决策分析页面，指令: {instruction}")
-        
+        _log_admin_action('genagents_start', 'genagents', {'instruction_length': len(instruction)})
+
         # 返回决策分析页面的URL
         return jsonify({
             'success': True, 
@@ -1878,10 +2123,14 @@ def api_open_image():
 
 # 查询后台执行状态
 @__app.route('/api/execution-status', methods=['GET'])
+@auth_service.require_auth
 def api_execution_status():
     try:
         from llm.execution_manager import get_execution_manager
         username = request.args.get('username', 'User')
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         mgr = get_execution_manager()
         state = mgr.get_state(username)
         if state is None:
@@ -1901,11 +2150,15 @@ def api_execution_status():
 
 # 取消后台执行任务
 @__app.route('/api/execution-cancel', methods=['POST'])
+@auth_service.require_auth
 def api_execution_cancel():
     try:
         from llm.execution_manager import get_execution_manager
         data = request.get_json() or {}
         username = data.get('username', 'User')
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         mgr = get_execution_manager()
         ok = mgr.cancel(username)
         return jsonify({'success': ok, 'username': username})
@@ -1914,11 +2167,15 @@ def api_execution_cancel():
 
 # 向运行中的后台任务注入修改指令
 @__app.route('/api/execution-modify', methods=['POST'])
+@auth_service.require_auth
 def api_execution_modify():
     try:
         from llm.execution_manager import get_execution_manager
         data = request.get_json() or {}
         username = data.get('username', 'User')
+        forbidden = _forbid_unless_self_or_admin(username)
+        if forbidden:
+            return forbidden
         instruction = data.get('instruction', '')
         if not instruction:
             return jsonify({'success': False, 'message': '缺少 instruction 参数'}), 400
@@ -1998,7 +2255,10 @@ def api_get_image_by_user(username, date, filename):
     from utils.image_storage import get_image_storage
 
     storage = get_image_storage()
-    image_dir = os.path.join(storage.base_dir, username, date)
+    base_dir = os.path.abspath(storage.base_dir)
+    image_dir = os.path.abspath(os.path.join(base_dir, username, date))
+    if os.path.commonpath([base_dir, image_dir]) != base_dir:
+        return jsonify({'error': '图片不存在'}), 404
 
     if not os.path.exists(image_dir):
         return jsonify({'error': '图片不存在'}), 404

@@ -3,11 +3,32 @@ from asyncio import AbstractEventLoop
 import websockets
 import asyncio
 import json
+import os
 from abc import abstractmethod
 from websockets.legacy.server import Serve
 
-from utils import util
+from utils import util, config_util
 from scheduler.thread_manager import MyThread
+
+WS_POLICY_VIOLATION = 1008
+WS_AUTH_TIMEOUT_SECONDS = 10.0
+DEFAULT_WS_USERNAME = "User"
+
+
+def _websocket_auth_enabled():
+    auth_config = {}
+    if isinstance(config_util.config, dict):
+        auth_config = config_util.config.get('auth', {}) or {}
+    elif os.path.exists('config.json'):
+        try:
+            with open('config.json', 'r', encoding='utf-8') as file:
+                auth_config = (json.load(file).get('auth') or {})
+        except Exception:
+            auth_config = {}
+    value = auth_config.get('enabled', False)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
 
 class MyServer:
     def __init__(self, host='0.0.0.0', port=10000):
@@ -25,28 +46,34 @@ class MyServer:
         self.__tasks = {}  # 记录任务和开始时间的字典
 
     # 接收处理
-    async def __consumer_handler(self, websocket, path):
-        username = None
+    async def __consumer_handler(self, websocket, path, auth_context=None):
+        auth_context = auth_context or {}
+        bound_username = auth_context.get('username') if auth_context.get('authenticated') else None
+        username = bound_username
         output_setting = None
         try:
             async for message in websocket:
                 await asyncio.sleep(0.01)
+                message_username = bound_username
+                output_setting = None
                 try:
                     data = json.loads(message)
-                    username = data.get("Username")
+                    if bound_username is None:
+                        message_username = data.get("Username")
                     output_setting = data.get("Output")
                 except json.JSONDecodeError:
                     pass  # Ignore invalid JSON messages
-                if username is not None or output_setting is not None:
+                if message_username is not None or output_setting is not None:
                     remote_address = websocket.remote_address
                     unique_id = f"{remote_address[0]}:{remote_address[1]}"
                     async with self.lock:
                         for i in range(len(self.__clients)):
                             if self.__clients[i]["id"] == unique_id:
-                                if username is not None:
-                                    self.__clients[i]["username"] = username
+                                if message_username is not None:
+                                    self.__clients[i]["username"] = message_username
+                                    username = message_username
                                 if output_setting is not None:
-                                    self.__clients[i]["output"] = output_setting   
+                                    self.__clients[i]["output"] = output_setting
                 await self.__consumer(message)
         except websockets.exceptions.ConnectionClosedError as e:
             # 从客户端列表中移除已断开的连接
@@ -116,15 +143,56 @@ class MyServer:
             util.printInfo(1, "User" if username is None else username, f"WebSocket 连接关闭: {e}")
 
                 
+    async def __authenticate_connection(self, websocket):
+        if not _websocket_auth_enabled():
+            return {'authenticated': False, 'username': DEFAULT_WS_USERNAME, 'role': None, 'uid': None, 'output': True}
+        try:
+            message = await asyncio.wait_for(websocket.recv(), timeout=WS_AUTH_TIMEOUT_SECONDS)
+            data = json.loads(message)
+        except asyncio.TimeoutError:
+            await websocket.close(code=WS_POLICY_VIOLATION, reason='Missing token')
+            return None
+        except json.JSONDecodeError:
+            await websocket.close(code=WS_POLICY_VIOLATION, reason='Invalid token')
+            return None
+
+        token = data.get('token')
+        if not token:
+            await websocket.close(code=WS_POLICY_VIOLATION, reason='Missing token')
+            return None
+        try:
+            from core import auth_service
+            payload = auth_service.verify_token(token)
+        except Exception:
+            await websocket.close(code=WS_POLICY_VIOLATION, reason='Invalid token')
+            return None
+        return {
+            'authenticated': True,
+            'username': payload.get('username') or DEFAULT_WS_USERNAME,
+            'role': payload.get('role'),
+            'uid': payload.get('uid'),
+            'output': data.get('Output', True),
+        }
+
     async def __handler(self, websocket, path):
+        auth_context = await self.__authenticate_connection(websocket)
+        if auth_context is None:
+            return
         self.isConnect = True
         util.log(1,"websocket连接上:{}".format(self.__port))
         self.on_connect_handler()
         remote_address = websocket.remote_address
         unique_id = f"{remote_address[0]}:{remote_address[1]}"
         async with self.lock:
-            self.__clients.append({"id" : unique_id, "websocket" : websocket, "username" : "User"})
-        consumer_task = asyncio.create_task(self.__consumer_handler(websocket, path))#接收
+            self.__clients.append({
+                "id": unique_id,
+                "websocket": websocket,
+                "username": auth_context.get('username') or DEFAULT_WS_USERNAME,
+                "role": auth_context.get('role'),
+                "uid": auth_context.get('uid'),
+                "output": auth_context.get('output', True),
+            })
+        consumer_task = asyncio.create_task(self.__consumer_handler(websocket, path, auth_context))#接收
         producer_task = asyncio.create_task(self.__producer_handler(websocket, path))#发送
         done, self.__pending = await asyncio.wait([consumer_task, producer_task], return_when=asyncio.FIRST_COMPLETED)
 

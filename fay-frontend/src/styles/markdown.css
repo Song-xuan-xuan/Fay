@@ -1,6 +1,8 @@
 .markdown-body {
+  max-width: 100%;
   color: #1f2937;
   line-height: 1.6;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -37,6 +39,7 @@
 }
 
 .markdown-body pre {
+  max-width: 100%;
   overflow: auto;
   border: 1px solid #d9deea;
   border-radius: 8px;
@@ -53,7 +56,9 @@
 }
 
 .markdown-body table {
+  display: block;
   width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   margin: 8px 0;
 }

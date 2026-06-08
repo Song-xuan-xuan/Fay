@@ -1,33 +1,34 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { Image as ImageIcon } from '@lucide/vue';
-import { addUser, adoptMessage, deleteUser, getMessageHistory, openImage, unadoptMessage } from '../api/message';
-import type { MessageRecord, UserRecord } from '../types';
+import { getMessageHistory, openImage } from '../api/message';
+import type { MessageRecord } from '../types';
 import { useAppStore } from '../stores/app';
+import { useAuthStore } from '../stores/auth';
 import ChatComposer from '../components/messages/ChatComposer.vue';
+import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
 import MessageList from '../components/messages/MessageList.vue';
+import SessionPanel from '../components/messages/SessionPanel.vue';
 import SharePreviewDialog from '../components/messages/SharePreviewDialog.vue';
 import ShareToolbar from '../components/messages/ShareToolbar.vue';
-import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
-import UserInfoDialog from '../components/messages/UserInfoDialog.vue';
-import UserPanel from '../components/messages/UserPanel.vue';
 import { useAudioControlActions } from '../composables/useAudioControlActions';
+import { useChatSessions } from '../composables/useChatSessions';
 import { useMessageSubmit } from '../composables/useMessageSubmit';
-import { useUserInfoEditor } from '../composables/useUserInfoEditor';
 import { getImagePathFromClickTarget } from '../utils/messageContent';
 import { loadMarked } from '../utils/markdown';
 import { mergePanelReply } from '../utils/messageStream';
 import { createShareImageFilename, exportElementAsImage } from '../utils/shareImage';
 import { clearShareSelection, getShareSelectedMessages, selectAllShareMessages, toggleShareMessage } from '../utils/shareSelection';
+
 const appStore = useAppStore();
+const authStore = useAuthStore();
 const messages = ref<MessageRecord[]>([]);
 const newMessage = ref('');
 const loading = ref(false);
 const hasMore = ref(false);
 const offset = ref(0);
 const limit = 30;
-const newUsername = ref('');
 const shareSelectMode = ref(false);
 const sharePreviewVisible = ref(false);
 const sharePreviewDialog = ref<InstanceType<typeof SharePreviewDialog> | null>(null);
@@ -37,33 +38,52 @@ const renderVersion = ref(0);
 const chatComposer = ref<InstanceType<typeof ChatComposer> | null>(null);
 const pendingImages = ref<File[]>([]);
 
-const selectedUsername = computed(() => appStore.selectedUser?.[1] || 'User');
-const canSend = computed(() => (newMessage.value.trim().length > 0 || pendingImages.value.length > 0) && appStore.liveState === 1);
+const selectedUsername = computed(() => (authStore.isAdmin ? appStore.selectedUser?.[1] || 'User' : authStore.user?.username || appStore.selectedUser?.[1] || 'User'));
+const selectedUserAvatar = computed(() => {
+  if (!authStore.isAdmin) {
+    return authStore.user?.avatar_path || '';
+  }
+  if (appStore.selectedUser?.[1] === authStore.user?.username) {
+    return authStore.user?.avatar_path || appStore.selectedUser?.[2] || '';
+  }
+  return appStore.selectedUser?.[2] || '';
+});
+const selectedSessionId = computed<number | null>(() => appStore.selectedSession?.id ?? null);
+const canSend = computed(() => selectedSessionId.value !== null && (newMessage.value.trim().length > 0 || pendingImages.value.length > 0) && appStore.liveState === 1);
+const canControlService = computed(() => authStore.isAdmin);
 const shareSelectedMessages = computed(() => getShareSelectedMessages(messages.value));
-const userInfoEditor = useUserInfoEditor();
 const audioActions = useAudioControlActions(appStore);
 const { submitMessage } = useMessageSubmit({
   selectedUsername,
+  selectedSessionId,
   newMessage,
   pendingImages,
   getLiveState: () => appStore.liveState,
   clearComposerImages: () => chatComposer.value?.clearImages(),
   reloadMessages: () => loadMessages(true),
 });
+const {
+  sessionLoading,
+  reloadSessionsAndMessages,
+  selectSession,
+  createSession,
+  renameSession,
+  removeSession,
+} = useChatSessions({ selectedUsername, loadMessages });
 
 function scrollToBottom() {
   messageList.value?.scrollToBottom();
 }
 
 async function loadMessages(reset = true) {
-  if (!appStore.selectedUser) {
+  if (selectedSessionId.value === null) {
     messages.value = [];
     return;
   }
   loading.value = true;
   try {
     const nextOffset = reset ? 0 : offset.value;
-    const data = await getMessageHistory(selectedUsername.value, limit, nextOffset);
+    const data = await getMessageHistory(selectedUsername.value, limit, nextOffset, selectedSessionId.value);
     messages.value = reset ? data.list : [...data.list, ...messages.value];
     hasMore.value = data.hasMore;
     offset.value = messages.value.length;
@@ -81,44 +101,6 @@ function handleImagesChange(images: File[]) {
   pendingImages.value = images;
 }
 
-async function addNewUser() {
-  const username = newUsername.value.trim();
-  if (!username) {
-    return;
-  }
-  const result = await addUser(username);
-  if (result.success) {
-    const user = [result.uid || Date.now(), username] as UserRecord;
-    appStore.users.push(user);
-    appStore.selectedUser = user;
-    newUsername.value = '';
-    await loadMessages();
-  }
-}
-
-async function removeUser(user: UserRecord) {
-  if (user[1] === 'User') {
-    return;
-  }
-  await ElMessageBox.confirm(`确认删除用户 ${user[1]} 及其聊天记录？`, '删除用户', { type: 'warning' });
-  await deleteUser(user[1]);
-  appStore.users = appStore.users.filter((item) => item[1] !== user[1]);
-  appStore.selectedUser = appStore.users[0] || null;
-}
-
-async function toggleAdopt(message: MessageRecord) {
-  if (!message.id) {
-    return;
-  }
-  const result = message.is_adopted ? await unadoptMessage(message.id) : await adoptMessage(message.id);
-  if (result.status === 'success') {
-    message.is_adopted = message.is_adopted ? 0 : 1;
-    ElMessage.success(result.msg);
-  } else {
-    ElMessage.error(result.msg);
-  }
-}
-
 function enterShareSelectMode() {
   shareSelectMode.value = true;
   messages.value = clearShareSelection(messages.value);
@@ -131,10 +113,9 @@ function exitShareSelectMode() {
 }
 
 function toggleShareSelect(index: number) {
-  if (!shareSelectMode.value) {
-    return;
+  if (shareSelectMode.value) {
+    messages.value = toggleShareMessage(messages.value, index);
   }
-  messages.value = toggleShareMessage(messages.value, index);
 }
 
 function toggleThink(message: MessageRecord) {
@@ -192,14 +173,15 @@ function refreshMarkdownRenderer() {
 }
 
 watch(() => appStore.selectedUser, () => {
-  loadMessages();
+  appStore.setSelectedSession(null);
+  reloadSessionsAndMessages();
 });
 
 watch(() => appStore.panelReplySeq, () => {
   if (!appStore.latestPanelReply) {
     return;
   }
-  const next = mergePanelReply(messages.value, appStore.latestPanelReply, selectedUsername.value);
+  const next = mergePanelReply(messages.value, appStore.latestPanelReply, selectedUsername.value, selectedSessionId.value);
   if (next !== messages.value) {
     messages.value = next;
     scrollToBottom();
@@ -207,28 +189,28 @@ watch(() => appStore.panelReplySeq, () => {
 });
 
 onMounted(async () => {
-  await loadMessages();
+  await reloadSessionsAndMessages();
   refreshMarkdownRenderer();
 });
 </script>
 
 <template>
   <section class="page-grid page-grid-message">
-    <UserPanel
-      v-model:new-username="newUsername"
-      :users="appStore.users"
-      :selected-user="appStore.selectedUser"
-      @select="appStore.selectedUser = $event"
-      @edit="userInfoEditor.openUserInfoDialog"
-      @remove="removeUser"
-      @add="addNewUser"
+    <SessionPanel
+      :sessions="appStore.sessions"
+      :selected-session="appStore.selectedSession"
+      :loading="sessionLoading"
+      @select="selectSession"
+      @create="createSession"
+      @rename="renameSession"
+      @remove="removeSession"
     />
 
     <section class="panel chat-panel">
       <div class="panel-header">
         <div>
           <h2>{{ selectedUsername === 'User' ? '主人' : selectedUsername }}</h2>
-          <p>{{ appStore.panelMsg || '等待新的对话消息' }}</p>
+          <p>{{ appStore.panelMsg || appStore.selectedSession?.title || '等待新的对话消息' }}</p>
         </div>
         <el-button :icon="ImageIcon" :disabled="messages.length === 0" @click="enterShareSelectMode">分享图</el-button>
       </div>
@@ -249,9 +231,9 @@ onMounted(async () => {
         :has-more="hasMore"
         :share-select-mode="shareSelectMode"
         :render-version="renderVersion"
+        :user-avatar="selectedUserAvatar"
         @load-more="loadMessages(false)"
         @toggle-share="toggleShareSelect"
-        @toggle-adopt="toggleAdopt"
         @toggle-think="toggleThink"
         @toggle-prestart="togglePrestart"
         @content-click="openLocalImage"
@@ -262,6 +244,7 @@ onMounted(async () => {
         v-model="newMessage"
         :can-send="canSend"
         :live-state="appStore.liveState" :mic-enabled="appStore.audioConfig.mic" :speaker-enabled="appStore.audioConfig.speaker"
+        :show-management-controls="canControlService"
         @submit="submitMessage" @toggle-mic="audioActions.toggleMic"
         @toggle-speaker="audioActions.toggleSpeaker" @start-live="audioActions.startLiveFromComposer"
         @images-change="handleImagesChange"
@@ -279,14 +262,5 @@ onMounted(async () => {
     </section>
 
     <DigitalHumanPanel />
-    <UserInfoDialog
-      v-model:visible="userInfoEditor.visible.value"
-      v-model:extra-info="userInfoEditor.extraInfo.value"
-      v-model:user-portrait="userInfoEditor.userPortrait.value"
-      :loading="userInfoEditor.loading.value"
-      :saving="userInfoEditor.saving.value"
-      :user="userInfoEditor.editingUser.value"
-      @save="userInfoEditor.saveUserInfo"
-    />
   </section>
 </template>

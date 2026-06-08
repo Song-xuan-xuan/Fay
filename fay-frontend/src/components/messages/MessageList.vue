@@ -9,12 +9,12 @@ defineProps<{
   hasMore: boolean;
   shareSelectMode: boolean;
   renderVersion: number;
+  userAvatar?: string;
 }>();
 
 const emit = defineEmits<{
   (name: 'load-more'): void;
   (name: 'toggle-share', index: number): void;
-  (name: 'toggle-adopt', message: MessageRecord): void;
   (name: 'toggle-think', message: MessageRecord): void;
   (name: 'toggle-prestart', message: MessageRecord): void;
   (name: 'content-click', mouseEvent: MouseEvent): void;
@@ -44,8 +44,8 @@ defineExpose({ scrollToBottom });
       :index="index"
       :share-select-mode="shareSelectMode"
       :render-version="renderVersion"
+      :user-avatar="userAvatar"
       @toggle-share="emit('toggle-share', $event)"
-      @toggle-adopt="emit('toggle-adopt', $event)"
       @toggle-think="emit('toggle-think', $event)"
       @toggle-prestart="emit('toggle-prestart', $event)"
       @content-click="emit('content-click', $event)"

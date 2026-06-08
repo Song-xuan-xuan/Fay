@@ -6,6 +6,7 @@ defineProps<{
   users: UserRecord[];
   selectedUser: UserRecord | null;
   newUsername: string;
+  canManageUsers: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -41,14 +42,14 @@ function chooseUser(user: UserRecord, selectedUser: UserRecord | null) {
       >
         <span>{{ user[1] === 'User' ? '主人' : user[1] }}</span>
         <Trash2
-          v-if="user[1] !== 'User'"
+          v-if="canManageUsers && user[1] !== 'User'"
           :size="16"
           aria-label="删除用户"
           @click.stop="emit('remove', user)"
         />
       </button>
     </div>
-    <div class="inline-form">
+    <div v-if="canManageUsers" class="inline-form">
       <el-input
         :model-value="newUsername"
         placeholder="新用户"

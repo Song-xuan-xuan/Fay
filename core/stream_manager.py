@@ -47,14 +47,25 @@ class StreamManager:
         self.msgid = ""  # 消息ID
         self.stop_generation_flags = {}  # 存储用户的停止生成标志
         self.conversation_ids = {}  # 存储每个用户的会话ID（conv_前缀）
+        self.session_ids = {}  # 存储 (用户名, conv_id) 到业务会话ID的映射
 
 
-    def set_current_conversation(self, username, conversation_id, session_type=None):
+    def _normalize_session_id(self, session_id):
+        if session_id is None or session_id == "":
+            return None
+        try:
+            return int(session_id)
+        except (TypeError, ValueError):
+            return session_id
+
+    def set_current_conversation(self, username, conversation_id, session_type=None, session_id=None):
         """设置当前会话ID（conv_*）并对齐状态管理器的会话。
         session_type 可选；未提供则沿用已存在状态的类型或默认 'stream'。
         """
         with self.control_lock:
             self.conversation_ids[username] = conversation_id
+            if session_id is not None and conversation_id:
+                self.session_ids[(username, conversation_id)] = self._normalize_session_id(session_id)
 
         # 对齐 StreamStateManager 的会话，以防用户名级状态跨会话串线
         try:
@@ -70,6 +81,11 @@ class StreamManager:
         except Exception:
             # 状态对齐失败不阻断主流程
             pass
+
+    def get_session_id(self, username, conversation_id=None):
+        with self.control_lock:
+            effective_cid = conversation_id if conversation_id is not None else self.conversation_ids.get(username, "")
+            return self.session_ids.get((username, effective_cid))
 
     def get_conversation_id(self, username):
         """获取当前会话ID（可能为空字符串）"""
@@ -339,7 +355,11 @@ class StreamManager:
             fay_core = fay_booter.feiFei
             # 附带当前会话ID，方便下游按会话控制输出
             effective_cid = producer_cid if producer_cid is not None else getattr(self, 'conversation_ids', {}).get(username, "")
-            interact = Interact("stream", 1, {"user": username, "msg": sentence, "isfirst": is_first, "isend": is_end, "conversation_id": effective_cid})
+            data = {"user": username, "msg": sentence, "isfirst": is_first, "isend": is_end, "conversation_id": effective_cid}
+            session_id = self.get_session_id(username, effective_cid)
+            if session_id is not None:
+                data["session_id"] = session_id
+            interact = Interact("stream", 1, data)
             fay_core.say(interact, sentence, type="qa" if is_qa else "")  # 调用核心处理模块进行响应
         time.sleep(0.01)  # 短暂休眠以控制处理频率
 

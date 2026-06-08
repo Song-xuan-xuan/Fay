@@ -9,6 +9,7 @@ defineProps<{
   liveState: number;
   micEnabled: boolean;
   speakerEnabled: boolean;
+  showManagementControls: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -131,7 +132,7 @@ onUnmounted(() => {
       @keydown.enter.exact.prevent="emit('submit')"
     />
     <el-button type="primary" :icon="Send" :disabled="!canSend && imagePreviews.length === 0" @click="emit('submit')">发送</el-button>
-    <div class="composer-controls">
+    <div v-if="showManagementControls" class="composer-controls">
       <el-button
         :icon="micEnabled ? Mic : MicOff"
         :aria-label="micEnabled ? '关闭麦克风' : '开启麦克风'"

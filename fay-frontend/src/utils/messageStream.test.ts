@@ -56,4 +56,24 @@ describe('mergePanelReply', () => {
 
     expect(next).toEqual(messages);
   });
+
+  it('ignores panel replies for a different selected session', () => {
+    const messages: MessageRecord[] = [{
+      id: 1,
+      type: 'user',
+      username: 'User',
+      content: '当前会话',
+      session_id: 10,
+    }];
+
+    const next = mergePanelReply(messages, {
+      id: 2,
+      type: 'fay',
+      username: 'User',
+      content: '别的会话',
+      session_id: 11,
+    }, 'User', 10);
+
+    expect(next).toEqual(messages);
+  });
 });

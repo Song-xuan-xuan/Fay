@@ -4,6 +4,12 @@ import threading
 import functools
 from utils import util
 
+try:
+    from core.dashboard_operational import SESSION_TIMEOUT_MS, classify_question_topic
+except Exception:
+    SESSION_TIMEOUT_MS = 30 * 60 * 1000
+    classify_question_topic = None
+
 def synchronized(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -22,7 +28,7 @@ def new_instance():
 class Content_Db:
 
     def __init__(self) -> None:
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
     # 初始化数据库
     def init_db(self):
@@ -39,17 +45,8 @@ class Content_Db:
             uid         INT,
             images      TEXT);''')
 
-        # 检查并添加 images 字段（向后兼容）
-        try:
-            c.execute("SELECT images FROM T_Msg LIMIT 1")
-        except sqlite3.OperationalError:
-            # images 字段不存在，添加它
-            try:
-                c.execute("ALTER TABLE T_Msg ADD COLUMN images TEXT")
-                conn.commit()
-                util.log(1, "数据库升级：T_Msg 表已添加 images 字段")
-            except Exception as e:
-                util.log(1, f"添加 images 字段失败（可能已存在）: {e}")
+        self._ensure_message_columns(c)
+        self._ensure_service_session_table(c)
 
         # 对话采纳记录表
         c.execute('''CREATE TABLE IF NOT EXISTS T_Adopted
@@ -60,9 +57,56 @@ class Content_Db:
         conn.commit()
         conn.close()
 
+    def _ensure_message_columns(self, cursor):
+        cursor.execute('PRAGMA table_info(T_Msg)')
+        existing = {column[1] for column in cursor.fetchall()}
+        definitions = {
+            'images': 'TEXT',
+            'session_id': 'INTEGER DEFAULT NULL',
+            'topic': 'TEXT DEFAULT ""',
+        }
+        for name, definition in definitions.items():
+            if name not in existing:
+                try:
+                    cursor.execute(f'ALTER TABLE T_Msg ADD COLUMN {name} {definition}')
+                    util.log(1, f'数据库升级：T_Msg 表已添加 {name} 字段')
+                except Exception as e:
+                    util.log(1, f'添加 {name} 字段失败（可能已存在）: {e}')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_createtime ON T_Msg(createtime)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_topic ON T_Msg(topic)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_uid ON T_Msg(uid)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_session ON T_Msg(session_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_username ON T_Msg(username)')
+
+    def _ensure_service_session_table(self, cursor):
+        cursor.execute('''CREATE TABLE IF NOT EXISTS T_ServiceSession
+            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER,
+            username    TEXT,
+            started_at  INTEGER,
+            last_active_at INTEGER,
+            message_count INTEGER DEFAULT 0,
+            source      TEXT DEFAULT 'chat',
+            title       TEXT DEFAULT '',
+            deleted_at  INTEGER DEFAULT NULL);''')
+        self._ensure_session_columns(cursor)
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_started ON T_ServiceSession(started_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_user ON T_ServiceSession(user_id)')
+
+    def _ensure_session_columns(self, cursor):
+        cursor.execute('PRAGMA table_info(T_ServiceSession)')
+        existing = {column[1] for column in cursor.fetchall()}
+        definitions = {
+            'title': 'TEXT DEFAULT ""',
+            'deleted_at': 'INTEGER DEFAULT NULL',
+        }
+        for name, definition in definitions.items():
+            if name not in existing:
+                cursor.execute(f'ALTER TABLE T_ServiceSession ADD COLUMN {name} {definition}')
+
     # 添加对话
     @synchronized
-    def add_content(self, type, way, content, username='User', uid=0, images=None):
+    def add_content(self, type, way, content, username='User', uid=0, images=None, created_ms=None, session_id=None):
         """
         添加对话消息
 
@@ -73,6 +117,7 @@ class Content_Db:
             username: 用户名
             uid: 用户ID
             images: 图片URL列表（可选）
+            created_ms: 指定创建时间，主要用于测试或导入历史消息
 
         Returns:
             (last_id, now_ms)
@@ -81,14 +126,27 @@ class Content_Db:
         conn = sqlite3.connect("memory/fay.db")
         conn.text_factory = str
         cur = conn.cursor()
-        now_ms = int(time.time() * 1000)
+        now_ms = int(created_ms if created_ms is not None else time.time() * 1000)
 
         # 将图片列表转为 JSON
         images_json = json.dumps(images) if images else None
+        topic = ''
+        active_session_id = None
+        if session_id is not None:
+            requested_session_id = int(session_id)
+            if requested_session_id != 0:
+                active_session_id = requested_session_id
+                self._touch_service_session(cur, active_session_id, now_ms, increment=(type != 'fay'))
+        elif type != 'fay':
+            if classify_question_topic:
+                topic = classify_question_topic(content)
+            active_session_id = self._upsert_service_session(cur, username, uid, now_ms)
 
         try:
-            cur.execute("INSERT INTO T_Msg (type, way, content, createtime, username, uid, images) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (type, way, content, now_ms, username, uid, images_json))
+            cur.execute("""INSERT INTO T_Msg
+                (type, way, content, createtime, username, uid, images, session_id, topic)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (type, way, content, now_ms, username, uid, images_json, active_session_id, topic))
             conn.commit()
             last_id = cur.lastrowid
         except Exception as e:
@@ -97,6 +155,57 @@ class Content_Db:
             return 0, 0
         conn.close()
         return last_id, now_ms
+
+    def _upsert_service_session(self, cursor, username, uid, now_ms):
+        session = self._find_active_service_session(cursor, username, uid, now_ms)
+        if session:
+            session_id, message_count = session
+            cursor.execute(
+                'UPDATE T_ServiceSession SET last_active_at = ?, message_count = ? WHERE id = ?',
+                (now_ms, int(message_count or 0) + 1, session_id),
+            )
+            return session_id
+        cursor.execute(
+            '''INSERT INTO T_ServiceSession
+            (user_id, username, started_at, last_active_at, message_count, source)
+            VALUES (?, ?, ?, ?, 1, 'chat')''',
+            (int(uid or 0), username or 'User', now_ms, now_ms),
+        )
+        return cursor.lastrowid
+
+    def _touch_service_session(self, cursor, session_id, now_ms, increment=False):
+        if increment:
+            cursor.execute(
+                '''UPDATE T_ServiceSession
+                SET last_active_at = ?, message_count = message_count + 1
+                WHERE id = ? AND deleted_at IS NULL''',
+                (now_ms, int(session_id)),
+            )
+            return
+        cursor.execute(
+            'UPDATE T_ServiceSession SET last_active_at = ? WHERE id = ? AND deleted_at IS NULL',
+            (now_ms, int(session_id)),
+        )
+
+    def _find_active_service_session(self, cursor, username, uid, now_ms):
+        if int(uid or 0) != 0:
+            row = cursor.execute(
+                '''SELECT id, message_count, last_active_at FROM T_ServiceSession
+                WHERE user_id = ? AND deleted_at IS NULL ORDER BY last_active_at DESC LIMIT 1''',
+                (int(uid),),
+            ).fetchone()
+        else:
+            row = cursor.execute(
+                '''SELECT id, message_count, last_active_at FROM T_ServiceSession
+                WHERE username = ? AND deleted_at IS NULL ORDER BY last_active_at DESC LIMIT 1''',
+                (username or 'User',),
+            ).fetchone()
+        if not row:
+            return None
+        session_id, message_count, last_active_at = row
+        if now_ms - int(last_active_at or 0) > SESSION_TIMEOUT_MS:
+            return None
+        return session_id, message_count
 
     # 更新对话内容
     @synchronized
@@ -197,49 +306,168 @@ class Content_Db:
 
     # 获取对话内容
     @synchronized
-    def get_list(self, way, order, limit, uid=0, offset=0):
+    def get_list(self, way, order, limit, uid=0, offset=0, session_id=None):
         conn = sqlite3.connect("memory/fay.db")
         conn.text_factory = str
         cur = conn.cursor()
         where_uid = ""
         if int(uid) != 0:
             where_uid = f" AND T_Msg.uid = {uid} "
+        where_session = ""
+        params = []
+        if session_id is not None:
+            if int(session_id) == 0:
+                where_session = " AND T_Msg.session_id IS NULL "
+            else:
+                where_session = " AND T_Msg.session_id = ? "
+                params.append(int(session_id))
         base_query = f"""
             SELECT T_Msg.type, T_Msg.way, T_Msg.content, T_Msg.createtime,
                    datetime(T_Msg.createtime/1000, 'unixepoch', 'localtime') AS timetext,
                    T_Msg.username,T_Msg.id,
                    CASE WHEN T_Adopted.msg_id IS NOT NULL THEN 1 ELSE 0 END AS is_adopted,
-                   T_Msg.images
+                   T_Msg.images,
+                   T_Msg.session_id
             FROM T_Msg
             LEFT JOIN T_Adopted ON T_Msg.id = T_Adopted.msg_id
-            WHERE 1 {where_uid}
+            WHERE 1 {where_uid} {where_session}
         """
         if way == 'all':
             query = base_query + f" ORDER BY T_Msg.id {order} LIMIT ? OFFSET ?"
-            cur.execute(query, (limit, offset))
+            cur.execute(query, (*params, limit, offset))
         elif way == 'notappended':
             query = base_query + f" AND T_Msg.way != 'appended' ORDER BY T_Msg.id {order} LIMIT ? OFFSET ?"
-            cur.execute(query, (limit, offset))
+            cur.execute(query, (*params, limit, offset))
         else:
             query = base_query + f" AND T_Msg.way = ? ORDER BY T_Msg.id {order} LIMIT ? OFFSET ?"
-            cur.execute(query, (way, limit, offset))
+            cur.execute(query, (*params, way, limit, offset))
         list = cur.fetchall()
         conn.close()
         return list
 
     # 获取用户消息总数
     @synchronized
-    def get_message_count(self, uid=0):
+    def get_message_count(self, uid=0, session_id=None):
         conn = sqlite3.connect("memory/fay.db")
         conn.text_factory = str
         cur = conn.cursor()
-        where_uid = ""
+        where = []
+        params = []
         if int(uid) != 0:
-            where_uid = f" WHERE uid = {uid} "
-        cur.execute(f"SELECT COUNT(*) FROM T_Msg {where_uid}")
+            where.append("uid = ?")
+            params.append(int(uid))
+        if session_id is not None:
+            if int(session_id) == 0:
+                where.append("session_id IS NULL")
+            else:
+                where.append("session_id = ?")
+                params.append(int(session_id))
+        where_sql = f" WHERE {' AND '.join(where)}" if where else ""
+        cur.execute(f"SELECT COUNT(*) FROM T_Msg {where_sql}", params)
         count = cur.fetchone()[0]
         conn.close()
         return count
+
+    @synchronized
+    def create_chat_session(self, username, uid, title='新会话'):
+        conn = sqlite3.connect("memory/fay.db")
+        cur = conn.cursor()
+        now_ms = int(time.time() * 1000)
+        cur.execute(
+            '''INSERT INTO T_ServiceSession
+            (user_id, username, started_at, last_active_at, message_count, source, title)
+            VALUES (?, ?, ?, ?, 0, 'chat', ?)''',
+            (int(uid or 0), username or 'User', now_ms, now_ms, title or '新会话'),
+        )
+        session_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return self.get_chat_session(session_id)
+
+    @synchronized
+    def get_chat_session(self, session_id):
+        conn = sqlite3.connect("memory/fay.db")
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            '''SELECT id, user_id, username, started_at, last_active_at,
+                   message_count, source, title, deleted_at
+            FROM T_ServiceSession WHERE id = ?''',
+            (int(session_id),),
+        ).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    @synchronized
+    def list_chat_sessions(self, username, uid):
+        conn = sqlite3.connect("memory/fay.db")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        rows = cursor.execute(
+            '''SELECT id, user_id, username, started_at, last_active_at,
+                   message_count, source, title, deleted_at
+            FROM T_ServiceSession
+            WHERE deleted_at IS NULL AND (user_id = ? OR username = ?)
+            ORDER BY last_active_at DESC, id DESC''',
+            (int(uid or 0), username or 'User'),
+        ).fetchall()
+        legacy_count = cursor.execute(
+            'SELECT COUNT(*) FROM T_Msg WHERE uid = ? AND session_id IS NULL',
+            (int(uid or 0),),
+        ).fetchone()[0]
+        conn.close()
+        sessions = [dict(row) for row in rows]
+        if legacy_count:
+            sessions.append({
+                'id': 0,
+                'user_id': int(uid or 0),
+                'username': username or 'User',
+                'started_at': 0,
+                'last_active_at': 0,
+                'message_count': legacy_count,
+                'source': 'legacy',
+                'title': '默认会话',
+                'deleted_at': None,
+            })
+        return sessions
+
+    @synchronized
+    def rename_chat_session(self, session_id, title):
+        conn = sqlite3.connect("memory/fay.db")
+        conn.execute(
+            'UPDATE T_ServiceSession SET title = ? WHERE id = ? AND deleted_at IS NULL',
+            (title or '未命名会话', int(session_id)),
+        )
+        conn.commit()
+        conn.close()
+        return self.get_chat_session(session_id)
+
+    @synchronized
+    def delete_chat_session(self, session_id, username=None, uid=0):
+        conn = sqlite3.connect("memory/fay.db")
+        cur = conn.cursor()
+        sid = int(session_id)
+        if sid == 0:
+            params = []
+            filters = ['session_id IS NULL']
+            if int(uid or 0) != 0:
+                filters.append('uid = ?')
+                params.append(int(uid))
+            elif username:
+                filters.append('username = ?')
+                params.append(username)
+            cur.execute(f"SELECT id FROM T_Msg WHERE {' AND '.join(filters)}", params)
+        else:
+            cur.execute('SELECT id FROM T_Msg WHERE session_id = ?', (sid,))
+        msg_ids = [row[0] for row in cur.fetchall()]
+        if msg_ids:
+            placeholders = ','.join('?' * len(msg_ids))
+            cur.execute(f'DELETE FROM T_Adopted WHERE msg_id IN ({placeholders})', msg_ids)
+            cur.execute(f'DELETE FROM T_Msg WHERE id IN ({placeholders})', msg_ids)
+        if sid != 0:
+            cur.execute('DELETE FROM T_ServiceSession WHERE id = ?', (sid,))
+        conn.commit()
+        conn.close()
+        return len(msg_ids)
     
 
     @synchronized

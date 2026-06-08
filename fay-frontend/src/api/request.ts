@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../stores/auth';
 
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_PATH || '',
@@ -6,10 +7,27 @@ const request = axios.create({
   withCredentials: true,
 });
 
+request.interceptors.request.use((config) => {
+  const authStore = useAuthStore();
+  if (authStore.token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${authStore.token}`;
+  }
+  return config;
+});
+
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message = error.response?.data?.message || error.response?.data?.msg || error.message;
+    if (error.response?.status === 401) {
+      const authStore = useAuthStore();
+      authStore.clearSession();
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
+      }
+    }
+    const message = error.response?.data?.message || error.response?.data?.msg || error.response?.data?.error || error.message;
     return Promise.reject(new Error(message));
   },
 );

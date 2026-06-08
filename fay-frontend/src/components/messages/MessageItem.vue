@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Check, X } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import type { MessageRecord } from '../../types';
 import { parseAssistantContent, renderMarkdownContent } from '../../utils/messageContent';
 
@@ -9,11 +8,11 @@ const props = defineProps<{
   index: number;
   shareSelectMode: boolean;
   renderVersion: number;
+  userAvatar?: string;
 }>();
 
 const emit = defineEmits<{
   (name: 'toggle-share', index: number): void;
-  (name: 'toggle-adopt', message: MessageRecord): void;
   (name: 'toggle-think', message: MessageRecord): void;
   (name: 'toggle-prestart', message: MessageRecord): void;
   (name: 'content-click', mouseEvent: MouseEvent): void;
@@ -26,10 +25,39 @@ const renderedMainContent = computed(() => (
 const renderedPrestartContent = computed(() => (
   renderMarkdownContent(parsedContent.value.prestartContent, undefined, props.renderVersion)
 ));
-const messageImages = computed(() => (Array.isArray(props.message.images) ? props.message.images : []));
+const failedImages = ref(new Set<string>());
+const messageImages = computed(() => (
+  (Array.isArray(props.message.images) ? props.message.images : [])
+    .map(normalizeMessageImageSrc)
+    .filter((src): src is string => Boolean(src))
+));
+const avatarSrc = computed(() => (
+  props.message.type === 'fay'
+    ? '/static/images/Fay_send.png'
+    : props.userAvatar || '/static/images/User_send.png'
+));
+
+function normalizeMessageImageSrc(image: unknown) {
+  const raw = typeof image === 'string' ? image : '';
+  const src = raw.trim().replace(/\\/g, '/');
+  if (!src) return '';
+  if (/^(https?:|data:image\/|blob:|\/)/.test(src)) return src;
+  if (/^[^/]+\/\d{4}-\d{2}-\d{2}\/[^/]+$/.test(src)) {
+    return `/api/get-image/${src}`;
+  }
+  return src;
+}
 
 function emitShareToggle() {
   emit('toggle-share', props.index);
+}
+
+function markImageFailed(src: string) {
+  failedImages.value = new Set([...failedImages.value, src]);
+}
+
+function isImageFailed(src: string) {
+  return failedImages.value.has(src);
 }
 </script>
 
@@ -42,10 +70,10 @@ function emitShareToggle() {
     <span v-if="shareSelectMode" class="share-check" :class="{ checked: message.shareSelected }"></span>
     <img
       class="avatar"
-      :src="message.type === 'fay' ? '/static/images/Fay_send.png' : '/static/images/User_send.png'"
+      :src="avatarSrc"
       alt=""
     />
-    <div class="bubble">
+    <div class="message-bubble">
       <button
         v-if="message.type === 'fay' && parsedContent.thinkContent"
         class="fold-button"
@@ -57,7 +85,12 @@ function emitShareToggle() {
       <pre v-if="message.thinkExpanded" class="think-block">{{ parsedContent.thinkContent }}</pre>
       <div class="markdown-body" @click="emit('content-click', $event)" v-html="renderedMainContent"></div>
       <div v-if="messageImages.length" class="message-images">
-        <img v-for="image in messageImages" :key="image" :src="image" class="message-image" alt="消息图片" />
+        <template v-for="(image, imageIndex) in messageImages" :key="`${image}-${imageIndex}`">
+          <div v-if="isImageFailed(image)" class="message-image message-image-fallback" role="img" aria-label="图片加载失败">
+            加载失败
+          </div>
+          <img v-else :src="image" class="message-image" alt="" loading="lazy" @error="markImageFailed(image)" />
+        </template>
       </div>
       <button
         v-if="message.type === 'fay' && parsedContent.prestartContent"
@@ -74,16 +107,6 @@ function emitShareToggle() {
         v-html="renderedPrestartContent"
       ></div>
       <time>{{ message.timetext }}</time>
-      <button
-        v-if="message.type === 'fay' && message.id"
-        class="adopt-action"
-        type="button"
-        @click="emit('toggle-adopt', message)"
-      >
-        <Check v-if="message.is_adopted" :size="16" />
-        <X v-else :size="16" />
-        {{ message.is_adopted ? '已采纳' : '采纳' }}
-      </button>
     </div>
   </article>
 </template>

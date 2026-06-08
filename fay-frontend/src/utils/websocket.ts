@@ -21,6 +21,7 @@ export class ReconnectingSocket {
     private readonly url: string,
     private readonly onMessage: MessageHandler,
     private readonly reconnectDelay = 5000,
+    private readonly getAuthToken: () => string = () => '',
   ) {}
 
   connect() {
@@ -54,7 +55,8 @@ export class ReconnectingSocket {
 
   private sendRegistration() {
     this.connected = true;
-    this.socket?.send(JSON.stringify({ Username: this.username }));
+    const token = this.getAuthToken();
+    this.socket?.send(JSON.stringify({ Username: this.username, token: token || undefined }));
   }
 
   private handleMessage(raw: string) {

@@ -553,6 +553,7 @@ class FeiFei:
 
 
                 uid = member_db.new_instance().find_user(username)
+                session_id = interact.data.get("session_id")
                 no_reply = interact.data.get("no_reply", False)
                 if isinstance(no_reply, str):
                     no_reply = no_reply.strip().lower() in ("1", "true", "yes", "y", "on")
@@ -604,10 +605,11 @@ class FeiFei:
                             interact.data["msg"],
                             username,
                             uid,
-                            images=images  # 传递图片参数
+                            images=images,
+                            session_id=session_id
                         )
                         if wsa_server.get_web_instance().is_connected(username):
-                            wsa_server.get_web_instance().add_cmd({"panelReply": {"type":"member","content":interact.data["msg"], "username":username, "uid":uid, "id":content_id, "timetext": util.ms_to_timetext(create_ms), "images":images}, "Username" : username})
+                            wsa_server.get_web_instance().add_cmd({"panelReply": {"type":"member","content":interact.data["msg"], "username":username, "uid":uid, "id":content_id, "timetext": util.ms_to_timetext(create_ms), "images":images, "session_id":session_id}, "Username" : username})
 
 
                     
@@ -886,7 +888,11 @@ class FeiFei:
                 conv_id = "conv_" + str(uuid.uuid4())
 
 
-                stream_manager.new_instance().set_current_conversation(username, conv_id)
+                stream_manager.new_instance().set_current_conversation(
+                    username,
+                    conv_id,
+                    session_id=interact.data.get("session_id")
+                )
 
 
                 # 将当前会话ID附加到交互数据
@@ -1121,6 +1127,7 @@ class FeiFei:
 
 
             username = interact.data.get("user", "User")
+            session_id = interact.data.get("session_id")
 
 
             
@@ -1244,13 +1251,13 @@ class FeiFei:
                 if text and text.strip():
 
 
-                    content_id, _ = content_db.new_instance().add_content('fay', 'speak', text, username, uid)
+                    content_id, _ = content_db.new_instance().add_content('fay', 'speak', text, username, uid, session_id=session_id)
 
 
                 else:
 
 
-                    content_id, _ = content_db.new_instance().add_content('fay', 'speak', '', username, uid)
+                    content_id, _ = content_db.new_instance().add_content('fay', 'speak', '', username, uid, session_id=session_id)
 
 
 
@@ -1268,7 +1275,10 @@ class FeiFei:
                     "conversation_msg_no": conv_no,
 
 
-                    "content_id": content_id
+                    "content_id": content_id,
+
+
+                    "session_id": session_id
 
 
                 }
@@ -1305,6 +1315,12 @@ class FeiFei:
 
 
                         if u == username and info.get("content_id", 0) > 0:
+
+
+                            if session_id is not None and info.get("session_id") != session_id:
+
+
+                                continue
 
 
                             content_id = info.get("content_id", 0)
@@ -1376,6 +1392,14 @@ class FeiFei:
             if (not current_conv_info) and (not conv):
                 for (u, c), info in list(self.user_conv_map.items()):
                     if u == username and info.get("conversation_id", ""):
+
+
+                        if session_id is not None and info.get("session_id") != session_id:
+
+
+                            continue
+
+
                         current_conv_info = info
                         conv = info.get("conversation_id", c)
                         conv_map_key = (username, conv)
@@ -1415,13 +1439,13 @@ class FeiFei:
                 if is_end or not stream_manager.new_instance().should_stop_generation(user_for_stop, conversation_id=conv_id_for_stop):
 
 
-                    self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end)
+                    self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end, session_id=session_id)
 
 
             except Exception:
 
 
-                self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end)
+                self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end, session_id=session_id)
 
 
             
@@ -2799,7 +2823,7 @@ class FeiFei:
 
         return "".join(out)
 
-    def __send_panel_message(self, text, username, uid, content_id=None, type=None, is_end=False):
+    def __send_panel_message(self, text, username, uid, content_id=None, type=None, is_end=False, session_id=None):
 
 
         """
@@ -2901,7 +2925,10 @@ class FeiFei:
                     "timetext": getattr(self, '_last_update_timetext', None) or util.get_time_ms(),
 
 
-                    "is_end": is_end
+                    "is_end": is_end,
+
+
+                    "session_id": session_id
 
 
                 },
@@ -3024,7 +3051,7 @@ class FeiFei:
 
 
 
-    def __process_text_output(self, text, username, uid, content_id, type, is_first=False, is_end=False):
+    def __process_text_output(self, text, username, uid, content_id, type, is_first=False, is_end=False, session_id=None):
 
 
         """
@@ -3078,7 +3105,7 @@ class FeiFei:
         # 发送主回复到面板和数字人
 
 
-        self.__send_panel_message(text, username, uid, content_id, type, is_end)
+        self.__send_panel_message(text, username, uid, content_id, type, is_end, session_id=session_id)
 
 
         self.__send_digital_human_message(text, username, is_first, is_end)
