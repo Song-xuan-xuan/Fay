@@ -134,6 +134,11 @@ CLAUDE.md
 docs/superpowers/
 data/
 test/
+!test/
+test/*
+!test/test_digital_human_service.py
+!test/test_digital_human_routes.py
+!test/user_management_test_helpers.py
 samples/
 memory/
 model/

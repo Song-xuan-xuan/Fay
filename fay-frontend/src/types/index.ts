@@ -39,12 +39,58 @@ export interface VoiceOption {
   label?: string;
 }
 
+export type DigitalHumanType = 'live2d' | 'iframe' | 'image';
+
+export interface DigitalHumanPersona {
+  gender?: string;
+  age?: string;
+  birth?: string;
+  zodiac?: string;
+  constellation?: string;
+  position?: string;
+  goal?: string;
+  job?: string;
+  contact?: string;
+  additional?: string;
+  [key: string]: any;
+}
+
+export interface DigitalHuman {
+  id: string;
+  name: string;
+  type: DigitalHumanType;
+  cover_url: string;
+  render_url: string;
+  voice: string;
+  tags: string[];
+  persona: DigitalHumanPersona;
+  enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DigitalHumanPayload {
+  id?: string;
+  name?: string;
+  type?: DigitalHumanType;
+  cover_url?: string;
+  render_url?: string;
+  voice?: string;
+  tags?: string[];
+  persona?: DigitalHumanPersona;
+  enabled?: boolean;
+}
+
 export interface FayConfig {
   source?: Record<string, any>;
   attribute?: Record<string, any>;
   interact?: Record<string, any>;
   memory?: Record<string, any>;
   items?: any[];
+  digital_humans?: {
+    active_id?: string;
+    items?: DigitalHuman[];
+  };
 }
 
 export interface ConfigDataResponse {
@@ -67,6 +113,8 @@ export interface WebsocketPayload {
   liveState?: LiveState;
   voiceList?: VoiceOption[];
   deviceList?: string[];
+  digitalHuman?: DigitalHuman;
+  digitalHumanActiveId?: string;
   panelMsg?: string;
   panelReply?: MessageRecord;
   robot?: string;

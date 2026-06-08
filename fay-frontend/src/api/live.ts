@@ -1,6 +1,6 @@
 import { startLive, stopLive, getRunStatus } from './setting';
 
-export function getDefaultLive2dUrl(_currentPort = window.location.port): string {
+export function getDefaultLive2dUrl(_currentPort = typeof window === 'undefined' ? '' : window.location.port): string {
   return 'http://127.0.0.1:5174';
 }
 

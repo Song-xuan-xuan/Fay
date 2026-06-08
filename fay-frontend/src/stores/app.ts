@@ -5,6 +5,7 @@ import { getData, getRunStatus, startLive as startLiveApi, stopLive as stopLiveA
 import type { LiveState, MessageRecord, SystemStatus, UserRecord, VoiceOption, WebsocketPayload } from '../types';
 import { buildAudioConfigPatch, toggleAudioFlag, type AudioConfig } from '../utils/audioControls';
 import { useAuthStore } from './auth';
+import { useLive2dStore } from './live2d';
 
 function normalizeVoice(voice: VoiceOption) {
   return {
@@ -69,6 +70,15 @@ export const useAppStore = defineStore('app', () => {
     const [status, data] = await Promise.all([getRunStatus(), getData()]);
     liveState.value = status.status ? 1 : 0;
     voiceList.value = (data.voice_list || []).map(normalizeVoice);
+    const digitalHumans = data.config?.digital_humans;
+    if (digitalHumans?.items?.length) {
+      const live2d = useLive2dStore();
+      live2d.items = digitalHumans.items;
+      live2d.activeId = digitalHumans.active_id || '';
+      if (live2d.activeHuman?.render_url) {
+        live2d.iframeUrl = live2d.activeHuman.render_url;
+      }
+    }
   }
 
   async function refreshSystemStatus() {
@@ -113,6 +123,9 @@ export const useAppStore = defineStore('app', () => {
     }
     if (payload.voiceList !== undefined) {
       voiceList.value = payload.voiceList.map(normalizeVoice);
+    }
+    if (payload.digitalHuman !== undefined) {
+      useLive2dStore().receiveDigitalHuman(payload.digitalHuman, payload.digitalHumanActiveId);
     }
     if (payload.panelReply !== undefined) {
       const username = payload.panelReply.username;

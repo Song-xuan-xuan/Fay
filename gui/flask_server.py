@@ -43,9 +43,11 @@ from core.interact import Interact
 from core import member_db
 from core import auth_service
 from core import audit_service
+from core import digital_human_service
 from gui.auth_routes import register_auth_routes
 from gui.avatar_routes import register_avatar_routes
 from gui.dashboard_routes import register_dashboard_routes
+from gui.digital_human_routes import register_digital_human_routes
 import fay_booter
 from flask_httpauth import HTTPBasicAuth
 from core import qa_service
@@ -72,6 +74,7 @@ CORS(__app, supports_credentials=True)
 register_auth_routes(__app)
 register_avatar_routes(__app)
 register_dashboard_routes(__app)
+register_digital_human_routes(__app)
 
 def load_users():
     try:
@@ -184,6 +187,15 @@ def _log_admin_action(action, resource='', details=None):
         )
     except Exception as exc:
         util.log(1, f'记录管理审计日志失败: {exc}')
+
+
+def _push_web_cmd(command):
+    try:
+        web = wsa_server.get_web_instance()
+        if web is not None:
+            web.add_cmd(command)
+    except Exception as exc:
+        util.log(1, f'推送面板消息失败: {exc}')
 
 
 def _session_user_record(user):
@@ -511,6 +523,8 @@ def api_submit():
 
         merge_configs(existing_config, config_data['config'])
 
+        digital_human_service.ensure_digital_humans_config(existing_config)
+        digital_human_service.sync_active_human_from_attribute(existing_config)
         config_util.save_config(existing_config)
         config_util.load_config(force_reload=True)  # 强制重新加载配置
         _log_admin_action('config_update', 'config.json', {'keys': sorted(config_data['config'].keys())})
@@ -612,7 +626,7 @@ def api_get_data():
                 {"id": "aikan", "name": "艾侃"}
             ]
             send_voice_list = {"voiceList": voice_list}
-            wsa_server.get_web_instance().add_cmd(send_voice_list)
+            _push_web_cmd(send_voice_list)
         elif config_util.tts_module == 'volcano':
             voice_list = [
                 {"id": "BV001_streaming", "name": "通用女声"},
@@ -623,7 +637,7 @@ def api_get_data():
                 {"id": "zh_female_wanwanxiaohe_moon_bigtts", "name": "湾湾小何"}
             ]
             send_voice_list = {"voiceList": voice_list}
-            wsa_server.get_web_instance().add_cmd(send_voice_list)
+            _push_web_cmd(send_voice_list)
         elif config_util.tts_module == 'openai':
             # 只包含你的 TTS 服务实际支持的音色
             voice_list = [
@@ -636,7 +650,7 @@ def api_get_data():
                 {"id": "zh-CN-YunxiaNeural", "name": "云夏（女声）"}
             ]
             send_voice_list = {"voiceList": voice_list}
-            wsa_server.get_web_instance().add_cmd(send_voice_list)
+            _push_web_cmd(send_voice_list)
 
         else:
             voice_list = tts_voice.get_voice_list()
@@ -644,11 +658,12 @@ def api_get_data():
             for voice in voice_list:
                 voice_data = voice.value
                 send_voice_list.append({"id": voice_data['name'], "name": voice_data['name']})
-            wsa_server.get_web_instance().add_cmd({"voiceList": send_voice_list})
+            _push_web_cmd({"voiceList": send_voice_list})
             voice_list = send_voice_list
-        wsa_server.get_web_instance().add_cmd({"deviceList": __get_device_list()})
+        _push_web_cmd({"deviceList": __get_device_list()})
         if fay_booter.is_running():
-            wsa_server.get_web_instance().add_cmd({"liveState": 1})
+            _push_web_cmd({"liveState": 1})
+        digital_human_service.ensure_digital_humans_config(config_util.config)
         return json.dumps({'config': config_util.config, 'voice_list': voice_list})
     except Exception as e:
         return jsonify({'result': 'error', 'message': f'获取数据时出错: {e}'}), 500
