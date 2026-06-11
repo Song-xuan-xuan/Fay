@@ -18,6 +18,7 @@ import {
   type HotTopicItem,
 } from '../api/dashboard';
 import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
+import VisitorReportPanel from '../components/dashboard/VisitorReportPanel.vue';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
@@ -213,6 +214,9 @@ onMounted(loadDashboard);
         </el-tab-pane>
         <el-tab-pane label="热门问答" name="topics">
           <section class="chart-panel"><h3>主题聚合</h3><div class="topic-grid"><article v-for="topic in topics" :key="topic.topic" class="topic-item"><strong>{{ topic.topic }}</strong><span>{{ topic.count }} 次 · {{ Math.round(topic.ratio * 100) }}%</span><p>{{ topic.representative_question || '暂无代表问题' }}</p></article></div></section>
+        </el-tab-pane>
+        <el-tab-pane v-if="isAdmin" label="游客感受度" name="visitor-report">
+          <VisitorReportPanel />
         </el-tab-pane>
         <el-tab-pane label="景区分析" name="tourism">
           <section class="filter-row"><el-date-picker v-model="filters.start_date" value-format="YYYY-MM-DD" placeholder="开始日期" /><el-date-picker v-model="filters.end_date" value-format="YYYY-MM-DD" placeholder="结束日期" /><el-input v-model="filters.attraction_type" placeholder="景区类型" /><el-input v-model="filters.attraction_name" placeholder="景点名称" /><el-select v-model="filters.satisfaction_min" clearable placeholder="最低满意度"><el-option v-for="score in satisfactionScores" :key="`min-${score}`" :label="score" :value="score" /></el-select><el-select v-model="filters.satisfaction_max" clearable placeholder="最高满意度"><el-option v-for="score in satisfactionScores" :key="`max-${score}`" :label="score" :value="score" /></el-select><el-select v-model="filters.tourist_segment" clearable placeholder="游客分群"><el-option v-for="segment in touristSegments" :key="segment" :label="segment" :value="segment" /></el-select><el-button type="primary" @click="loadTourism">筛选</el-button></section>

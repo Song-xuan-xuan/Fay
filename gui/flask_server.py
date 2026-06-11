@@ -48,6 +48,7 @@ from gui.auth_routes import register_auth_routes
 from gui.avatar_routes import register_avatar_routes
 from gui.dashboard_routes import register_dashboard_routes
 from gui.digital_human_routes import register_digital_human_routes
+from gui.tourism_recommendation_routes import register_tourism_recommendation_routes
 import fay_booter
 from flask_httpauth import HTTPBasicAuth
 from core import qa_service
@@ -75,6 +76,7 @@ register_auth_routes(__app)
 register_avatar_routes(__app)
 register_dashboard_routes(__app)
 register_digital_human_routes(__app)
+register_tourism_recommendation_routes(__app)
 
 def load_users():
     try:
@@ -525,7 +527,7 @@ def api_submit():
 
         digital_human_service.ensure_digital_humans_config(existing_config)
         digital_human_service.sync_active_human_from_attribute(existing_config)
-        config_util.save_config(existing_config)
+        config_util.save_config_sections(existing_config, config_data['config'].keys())
         config_util.load_config(force_reload=True)  # 强制重新加载配置
         _log_admin_action('config_update', 'config.json', {'keys': sorted(config_data['config'].keys())})
 
@@ -1697,6 +1699,13 @@ def dashboard():
     except Exception as e:
         return f"Error loading dashboard page: {e}", 500
 
+@__app.route('/visitor-report', methods=['get'])
+def visitor_report():
+    try:
+        return __get_vue_app()
+    except Exception as e:
+        return f"Error loading visitor report page: {e}", 500
+
 @__app.route('/knowledge', methods=['get'])
 def knowledge():
     try:
@@ -1806,7 +1815,7 @@ def api_toggle_microphone():
             config_util.config['source']['record'] = {}
 
         config_util.config['source']['record']['enabled'] = enabled
-        config_util.save_config(config_util.config)
+        config_util.save_config_sections(config_util.config, ('source',))
         config_util.load_config()
         _log_admin_action('microphone_toggle', 'source.record.enabled', {'enabled': enabled})
 

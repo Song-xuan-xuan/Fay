@@ -6,7 +6,7 @@ from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 from core import digital_human_service
 
 
-DEFAULT_SAMPLES_ROOT = r"D:\Fay\mate-human\CubismSdkForWeb-5-r.4\Samples"
+DEFAULT_SAMPLES_ROOT = os.path.join("library", "live2d", "Samples")
 DEFAULT_RENDER_URL = "http://127.0.0.1:5174"
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 SAFE_MODEL_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -17,7 +17,8 @@ def _now_text():
 
 
 def samples_root():
-    return os.environ.get("FAY_LIVE2D_SAMPLES_ROOT") or DEFAULT_SAMPLES_ROOT
+    root = os.environ.get("FAY_LIVE2D_SAMPLES_ROOT") or DEFAULT_SAMPLES_ROOT
+    return os.path.abspath(root)
 
 
 def resources_root(root=None):
@@ -116,7 +117,7 @@ def import_live2d_resource_models(root=None, render_base_url=DEFAULT_RENDER_URL)
         existing_ids.add(human["id"])
         imported.append(human)
     if imported:
-        digital_human_service.persist_config(cfg)
+        digital_human_service.persist_config(cfg, sections=("digital_humans",))
     return {"imported": imported, "skipped": skipped, "items": discovered}
 
 

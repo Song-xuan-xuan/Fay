@@ -14,6 +14,10 @@ function normalizeVoice(voice: VoiceOption) {
   };
 }
 
+function isSameUserRecord(left: UserRecord | null, right: UserRecord | null) {
+  return Boolean(left && right && left[0] === right[0] && left[1] === right[1] && left[2] === right[2]);
+}
+
 export const useAppStore = defineStore('app', () => {
   const authStore = useAuthStore();
   const users = ref<UserRecord[]>([]);
@@ -37,8 +41,9 @@ export const useAppStore = defineStore('app', () => {
   function syncSelectedUser() {
     const ownUser = ownUserRecord();
     if (ownUser && !authStore.isAdmin) {
-      users.value = [ownUser];
-      selectedUser.value = ownUser;
+      const nextUser = isSameUserRecord(selectedUser.value, ownUser) ? selectedUser.value! : ownUser;
+      users.value = [nextUser];
+      selectedUser.value = nextUser;
       return;
     }
     if (!selectedUser.value && users.value.length > 0) {

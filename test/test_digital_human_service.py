@@ -51,9 +51,23 @@ class DigitalHumanServiceTest(unittest.TestCase):
         self.config_util.config_json_path = "config.json"
 
     def _patch_config_io(self):
+        def save_config(data):
+            self.config_util.config = copy.deepcopy(data)
+            self.saved.append(copy.deepcopy(data))
+
+        def save_config_sections(data, sections):
+            merged = copy.deepcopy(self.config_util.config)
+            for name in sections or []:
+                if name in data:
+                    merged[name] = copy.deepcopy(data[name])
+            self.config_util.config = merged
+            self.saved.append(copy.deepcopy(merged))
+            return merged
+
         return patch.multiple(
             self.config_util,
-            save_config=lambda data: self.saved.append(copy.deepcopy(data)),
+            save_config=save_config,
+            save_config_sections=save_config_sections,
             load_config=lambda force_reload=False: {"config": self.config_util.config},
         )
 
@@ -198,6 +212,18 @@ class DigitalHumanServiceTest(unittest.TestCase):
         self.assertEqual("live2d_haru", models[0]["id"])
         self.assertEqual("http://127.0.0.1:5174?model=Haru", models[0]["render_url"])
         self.assertEqual("/digital-humans/live2d-resources/Haru/Haru.2048/texture_00.png", models[0]["cover_url"])
+
+    def test_live2d_samples_root_uses_portable_default_and_env_override(self):
+        from core import live2d_resource_service as service
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("FAY_LIVE2D_SAMPLES_ROOT", None)
+            default_root = service.samples_root()
+        with patch.dict(os.environ, {"FAY_LIVE2D_SAMPLES_ROOT": "D:/custom/Samples"}):
+            override_root = service.samples_root()
+
+        self.assertEqual(os.path.abspath(os.path.join("library", "live2d", "Samples")), default_root)
+        self.assertEqual(os.path.abspath("D:/custom/Samples"), override_root)
 
     def test_imports_live2d_resource_models_without_duplicates(self):
         from core import live2d_resource_service as service

@@ -138,6 +138,14 @@ test/
 test/*
 !test/test_digital_human_service.py
 !test/test_digital_human_routes.py
+!test/test_dashboard_service.py
+!test/test_qa_service.py
+!test/test_config_persistence.py
+!test/test_runtime_cleanup.py
+!test/test_visitor_report_service.py
+!test/test_visitor_report_routes.py
+!test/test_tourism_recommendation_service.py
+!test/test_tourism_recommendation_routes.py
 !test/user_management_test_helpers.py
 samples/
 memory/

@@ -4,8 +4,12 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
+from core.dashboard_sessions import (
+    SESSION_TIMEOUT_MS,
+    derive_sessions,
+    merge_persisted_and_legacy_sessions,
+)
 
-SESSION_TIMEOUT_MS = 30 * 60 * 1000
 DAY_MS = 24 * 60 * 60 * 1000
 LOW_SATISFACTION_MAX = 2
 
@@ -55,7 +59,12 @@ def ensure_fay_schema(db_path):
             (id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER, username TEXT, started_at INTEGER,
             last_active_at INTEGER, message_count INTEGER DEFAULT 0,
-            source TEXT DEFAULT 'chat')''')
+            source TEXT DEFAULT 'chat', title TEXT DEFAULT '',
+            deleted_at INTEGER DEFAULT NULL)''')
+        _ensure_columns(conn, 'T_ServiceSession', {
+            'title': 'TEXT DEFAULT ""',
+            'deleted_at': 'INTEGER DEFAULT NULL',
+        })
         conn.execute('CREATE INDEX IF NOT EXISTS idx_msg_createtime ON T_Msg(createtime)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_msg_topic ON T_Msg(topic)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_msg_uid ON T_Msg(uid)')
@@ -102,7 +111,8 @@ def fetch_member_messages(db_path, start_ms=0):
     conn = sqlite3.connect(db_path)
     try:
         return conn.execute(
-            '''SELECT id, content, createtime, username, COALESCE(uid, 0), COALESCE(topic, '')
+            '''SELECT id, content, createtime, username, COALESCE(uid, 0),
+               COALESCE(topic, ''), COALESCE(session_id, 0)
             FROM T_Msg WHERE type != 'fay' AND createtime >= ? ORDER BY createtime ASC, id ASC''',
             (int(start_ms or 0),),
         ).fetchall()
@@ -110,27 +120,10 @@ def fetch_member_messages(db_path, start_ms=0):
         conn.close()
 
 
-def derive_sessions(messages):
-    sessions = []
-    active = {}
-    for _msg_id, content, created_ms, username, uid, _topic in messages:
-        if not content:
-            continue
-        key = uid or username or 'anonymous'
-        previous = active.get(key)
-        if previous is None or created_ms - previous['last_active_at'] > SESSION_TIMEOUT_MS:
-            previous = {'key': key, 'username': username, 'started_at': created_ms, 'last_active_at': created_ms, 'message_count': 0}
-            sessions.append(previous)
-        previous['last_active_at'] = created_ms
-        previous['message_count'] += 1
-        active[key] = previous
-    return sessions
-
-
 def operational_summary(db_path, range_key='7d'):
     start_ms = min(range_start_ms(range_key), week_start_ms(), today_start_ms())
     messages = fetch_member_messages(db_path, start_ms)
-    sessions = derive_sessions(messages)
+    sessions = merge_persisted_and_legacy_sessions(db_path, messages, start_ms)
     today_ms = today_start_ms()
     week_ms = week_start_ms()
     return {
@@ -146,12 +139,12 @@ def operational_summary(db_path, range_key='7d'):
 def service_trends(db_path, range_key='7d'):
     start_ms = range_start_ms(range_key)
     messages = fetch_member_messages(db_path, start_ms)
-    sessions = derive_sessions(messages)
+    sessions = merge_persisted_and_legacy_sessions(db_path, messages, start_ms)
     labels = _date_labels(start_ms)
     question_counts = Counter(_date_from_ms(item[2]) for item in messages)
     session_counts = Counter(_date_from_ms(item['started_at']) for item in sessions)
     users_by_day = defaultdict(set)
-    for _msg_id, _content, created_ms, username, uid, _topic in messages:
+    for _msg_id, _content, created_ms, username, uid, _topic, _session_id in messages:
         users_by_day[_date_from_ms(created_ms)].add(uid or username)
     return [
         {
@@ -168,7 +161,7 @@ def hot_topics(db_path, range_key='7d', limit=8):
     messages = fetch_member_messages(db_path, range_start_ms(range_key))
     counts = Counter()
     examples = {}
-    for _msg_id, content, _created_ms, _username, _uid, topic in messages:
+    for _msg_id, content, _created_ms, _username, _uid, topic, _session_id in messages:
         actual_topic = topic or classify_question_topic(content)
         counts[actual_topic] += 1
         examples.setdefault(actual_topic, content)

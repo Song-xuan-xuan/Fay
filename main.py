@@ -95,6 +95,7 @@ import signal
 import atexit
 import threading
 from utils import config_util, util
+from utils.runtime_cleanup import archive_startup_artifacts
 from asr import ali_nls
 from core import wsa_server
 from gui import flask_server
@@ -189,25 +190,9 @@ if config_util.start_mode == 'common':
     from PyQt5.QtWidgets import QApplication
     from gui.window import MainWindow
 
-#音频清理
-def __clear_samples():
-    if not os.path.exists("./samples"):
-        os.mkdir("./samples")
-    for file_name in os.listdir('./samples'):
-        if file_name.startswith('sample-'):
-            os.remove('./samples/' + file_name)
-
-#日志文件清理
-def __clear_logs():
-    if not os.path.exists("./logs"):
-        os.mkdir("./logs")
-    for file_name in os.listdir('./logs'):
-        if file_name.endswith('.log'):
-            try:
-                os.remove('./logs/' + file_name)
-            except PermissionError:
-                print(f"Warning: Cannot delete {file_name} - file is in use by another process")
-                continue        
+def __archive_runtime_artifacts():
+    archived = archive_startup_artifacts()
+    util.log(1, f"已归档历史运行文件: logs={archived['logs']}, samples={archived['samples']}")
 
 def __create_memory():
     if not os.path.exists("./memory"):
@@ -284,10 +269,9 @@ def console_listener():
 
 
 if __name__ == '__main__':
-    __clear_samples()
+    __archive_runtime_artifacts()
     __create_memory()
     __check_and_clear_chroma_db()  # 在创建memory目录后立即检查清理
-    __clear_logs()
 
     #init_db
     contentdb = content_db.new_instance()

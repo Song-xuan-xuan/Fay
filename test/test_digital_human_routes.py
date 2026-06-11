@@ -48,6 +48,7 @@ class DigitalHumanRoutesTest(TempProjectMixin, unittest.TestCase):
                 file,
                 ensure_ascii=False,
             )
+        self._write_live2d_samples()
 
     def tearDown(self):
         if self._previous_config_center_id is not None:
@@ -61,6 +62,16 @@ class DigitalHumanRoutesTest(TempProjectMixin, unittest.TestCase):
         db.create_default_admin("admin", "admin123")
         flask_server = importlib.import_module("gui.flask_server")
         return getattr(flask_server, "__app").test_client()
+
+    def _write_live2d_samples(self):
+        for model in ("Haru", "Hiyori", "Mao", "Natori"):
+            model_dir = os.path.join("library", "live2d", "Samples", "Resources", model)
+            texture_dir = os.path.join(model_dir, f"{model}.2048")
+            os.makedirs(texture_dir, exist_ok=True)
+            with open(os.path.join(model_dir, f"{model}.model3.json"), "w", encoding="utf-8") as file:
+                json.dump({"FileReferences": {"Moc": f"{model}.moc3"}}, file)
+            with open(os.path.join(texture_dir, "texture_00.png"), "wb") as file:
+                file.write(b"\x89PNG\r\n\x1a\nfake")
 
     def _admin_headers(self, client):
         response = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})

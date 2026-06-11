@@ -4,13 +4,16 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import {
   BookOpen,
   Bot,
+  FileText,
   LayoutDashboard,
   LogOut,
+  Map as MapIcon,
   MessageSquareText,
   MonitorCog,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  SlidersHorizontal,
   UserCog,
 } from '@lucide/vue';
 import ProfileDialog from '../components/auth/ProfileDialog.vue';
@@ -31,6 +34,9 @@ const navItems = [
   { to: '/setting', label: '人设', icon: Settings, exact: false, requiresRole: 'admin' },
   { to: '/live2d', label: '数字人', icon: Bot, exact: false, requiresRole: 'admin' },
   { to: '/dashboard', label: '数据看板', icon: LayoutDashboard, exact: false },
+  { to: '/visitor-report', label: '游客报告', icon: FileText, exact: false, requiresRole: 'admin' },
+  { to: '/recommendation', label: '游览推荐', icon: MapIcon, exact: true },
+  { to: '/recommendation/manage', label: '推荐维护', icon: SlidersHorizontal, exact: false, requiresRole: 'admin' },
   { to: '/knowledge', label: '知识库', icon: BookOpen, exact: false, requiresRole: 'admin' },
   { to: '/mcp', label: 'MCP', icon: MonitorCog, exact: false, requiresRole: 'admin' },
   { to: '/users', label: '用户', icon: UserCog, exact: false, requiresRole: 'admin' },

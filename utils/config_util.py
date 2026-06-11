@@ -1,6 +1,7 @@
 import os
 import json
 import codecs
+import copy
 import requests
 from configparser import ConfigParser
 import functools
@@ -657,8 +658,7 @@ def save_api_config_to_local(api_config, system_conf_path, config_json_path, sav
         
         # 默认只在首次下载时保存config.json.
         if save_config_json:
-            with codecs.open(config_json_path, 'w', encoding='utf-8') as f:
-                json.dump(api_config['config'], f, ensure_ascii=False, indent=4)
+            _write_config_json(config_json_path, api_config['config'])
         if save_system_conf and system_conf_path:
             util.log(1, f"cached config center files to local: {system_conf_path}, {config_json_path}")
             return
@@ -683,8 +683,40 @@ def save_config(config_data):
     global config
     global config_json_path
     
-    config = config_data
-    
-    # 保存到文件
-    with codecs.open(config_json_path, mode='w', encoding='utf-8') as file:
-        file.write(json.dumps(config_data, sort_keys=True, indent=4, separators=(',', ': ')))
+    config = copy.deepcopy(config_data)
+    _write_config_json(config_json_path, config)
+
+
+@synchronized
+def save_config_sections(config_data, sections):
+    """只替换指定顶层配置段，避免旧内存对象覆盖磁盘上的其他变更。"""
+    global config
+    global config_json_path
+    section_names = [name for name in sections or [] if name in config_data]
+    current = _read_config_json(config_json_path)
+    merged = current if isinstance(current, dict) else {}
+    for name in section_names:
+        merged[name] = copy.deepcopy(config_data[name])
+    config = merged
+    _write_config_json(config_json_path, merged)
+    return merged
+
+
+def _read_config_json(path):
+    if not path or not os.path.exists(path):
+        return {}
+    with codecs.open(path, encoding='utf-8') as file:
+        return json.load(file)
+
+
+def _write_config_json(path, data):
+    if not path:
+        raise ValueError('config_json_path is not set')
+    abs_path = os.path.abspath(path)
+    directory = os.path.dirname(abs_path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    temp_path = f"{abs_path}.tmp.{os.getpid()}.{threading.get_ident()}"
+    with codecs.open(temp_path, mode='w', encoding='utf-8') as file:
+        file.write(json.dumps(data, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False))
+    os.replace(temp_path, abs_path)

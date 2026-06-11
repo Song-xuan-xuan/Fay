@@ -1,7 +1,6 @@
 import os
 import csv
 import difflib
-import random
 from utils import config_util as cfg
 from scheduler.thread_manager import MyThread
 import shlex
@@ -36,7 +35,7 @@ class QAService:
         if query_type == 'qa':
             answer_dict = self.__read_qna(cfg.config['interact'].get('QnA'))
             answer, action = self.__get_keyword(answer_dict, text, query_type)
-            if action:
+            if action and self.__qna_command_actions_enabled():
                 MyThread(target=self.__run, args=[action]).start()
             return answer, 'qa'
     
@@ -130,11 +129,15 @@ class QAService:
             util.log(1, f'删除QA记录时出错: {e}')
             return False
 
+    def __qna_command_actions_enabled(self):
+        interact = cfg.config.get('interact', {}) if isinstance(cfg.config, dict) else {}
+        return bool(interact.get('enableQnACommandActions'))
+
     def __get_keyword(self, keyword_dict, text, query_type):
         threshold = 0.6
         candidates = []
 
-        for qa in keyword_dict:
+        for index, qa in enumerate(keyword_dict):
             if len(qa) < 2:
                 continue
             for quest in qa[0]:
@@ -143,14 +146,13 @@ class QAService:
                     similar += 0.3
                 if similar >= threshold:
                     action = qa[2] if (query_type == "qa" and len(qa) > 2) else None
-                    candidates.append((similar, qa[1], action))
+                    candidates.append((similar, len(quest), -index, qa[1], action))
 
         if not candidates:
             return None, None
 
-        # 从所有超过阈值的候选项中随机选择一个
-        chosen = random.choice(candidates)
-        return chosen[1], chosen[2]
+        chosen = max(candidates, key=lambda item: (item[0], item[1], item[2]))
+        return chosen[3], chosen[4]
 
     def __string_similar(self, s1, s2):
         return difflib.SequenceMatcher(None, s1, s2).quick_ratio()

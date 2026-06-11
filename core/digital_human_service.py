@@ -189,9 +189,11 @@ def get_active_digital_human(config=None):
     return copy.deepcopy(cfg["digital_humans"]["items"][0])
 
 
-def persist_config(config):
-    config_util.config = config
-    config_util.save_config(config)
+def persist_config(config, sections=None):
+    if sections and hasattr(config_util, "save_config_sections"):
+        config_util.save_config_sections(config, sections)
+    else:
+        config_util.save_config(config)
     config_util.load_config(force_reload=True)
 
 
@@ -203,7 +205,7 @@ def create_digital_human(payload, persist=True):
         raise ValueError("数字人 ID 已存在")
     cfg["digital_humans"]["items"].append(human)
     if persist:
-        persist_config(cfg)
+        persist_config(cfg, sections=("digital_humans",))
     return copy.deepcopy(human)
 
 
@@ -215,7 +217,8 @@ def update_digital_human(human_id, payload, persist=True):
     if cfg["digital_humans"].get("active_id") == updated["id"]:
         _apply_human_to_attribute(cfg, updated)
     if persist:
-        persist_config(cfg)
+        sections = ("digital_humans", "attribute") if cfg["digital_humans"].get("active_id") == updated["id"] else ("digital_humans",)
+        persist_config(cfg, sections=sections)
     return copy.deepcopy(updated)
 
 
@@ -225,7 +228,7 @@ def delete_digital_human(human_id, persist=True):
         raise ValueError("不能删除当前启用的数字人")
     deleted = cfg["digital_humans"]["items"].pop(index)
     if persist:
-        persist_config(cfg)
+        persist_config(cfg, sections=("digital_humans",))
     return copy.deepcopy(deleted)
 
 
@@ -246,7 +249,7 @@ def activate_digital_human(human_id, persist=True):
     cfg["digital_humans"]["active_id"] = human["id"]
     _apply_human_to_attribute(cfg, human)
     if persist:
-        persist_config(cfg)
+        persist_config(cfg, sections=("digital_humans", "attribute"))
     return copy.deepcopy(human)
 
 
@@ -261,7 +264,7 @@ def sync_active_human_from_attribute(config=None, persist=False):
     human["persona"] = _attribute_to_persona(attribute)
     human["updated_at"] = _now_text()
     if persist:
-        persist_config(cfg)
+        persist_config(cfg, sections=("digital_humans",))
     return copy.deepcopy(human)
 
 

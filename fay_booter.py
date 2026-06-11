@@ -25,7 +25,7 @@ ngrok = None
 socket_service_instance = None
 mcp_sse_server = None
 mcp_sse_thread = None
-# 是否启用内置 MCP SSE 服务器（默认关闭，需显式开启以避免端口/代理问题）
+# 是否启用内置 MCP SSE 服务器（默认开启，可在代码中按部署需要关闭）
 mcp_sse_enabled = True
 
 # 延迟导入fay_core
@@ -428,7 +428,7 @@ def start():
     util.log(1,'启动自动播报服务...')
     MyThread(target=start_auto_play_service).start()
 
-    # 启动 MCP SSE 服务（需显式开启）
+    # 启动 MCP SSE 服务
     if mcp_sse_enabled:
         try:
             from faymcp import mcp_server as fay_mcp_server
@@ -446,7 +446,7 @@ def start():
         except Exception as e:
             util.log(1, f"MCP SSE服务器启动异常: {e}")
     else:
-        util.log(1, 'MCP SSE服务器默认未开启，设 FAY_MCP_SSE_ENABLE=1 可启用')
+        util.log(1, 'MCP SSE服务器未开启')
         
     util.log(1, '服务启动完成!')
     
