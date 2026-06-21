@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { ImagePlus } from '@lucide/vue';
 import type { DigitalHumanPayload } from '../../types';
+import { DEFAULT_DIGITAL_HUMAN_COVER_SRC } from '../../utils/assets';
 
 defineProps<{
   editing: boolean;
@@ -30,10 +31,10 @@ function handleCoverChange(event: Event) {
 </script>
 
 <template>
-  <el-drawer v-model="visible" :title="editing ? '编辑数字人' : '新增数字人'" size="520px">
+  <el-drawer v-model="visible" :title="editing ? '编辑数字人' : '新增数字人'" size="520px" append-to-body>
     <el-form label-position="top" class="digital-human-form">
       <div class="cover-editor">
-        <img :src="form.cover_url || '/static/images/Normal.gif'" alt="" />
+        <img :src="form.cover_url || DEFAULT_DIGITAL_HUMAN_COVER_SRC" alt="" />
         <div>
           <el-button :icon="ImagePlus" :disabled="!editing" @click="triggerCoverUpload">上传封面</el-button>
           <p>新增数字人保存后可上传封面。</p>

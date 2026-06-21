@@ -4,7 +4,6 @@ import { setupAuthGuards } from './guards';
 
 const Login = () => import('../views/Login.vue');
 const Message = () => import('../views/Message.vue');
-const Setting = () => import('../views/Setting.vue');
 const Live2D = () => import('../views/Live2D.vue');
 const Dashboard = () => import('../views/Dashboard.vue');
 const VisitorReport = () => import('../views/VisitorReport.vue');
@@ -24,7 +23,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         { path: '', name: 'message', component: Message, meta: { requiresAuth: true } },
-        { path: 'setting', name: 'setting', component: Setting, meta: { requiresAuth: true, requiresRole: 'admin' } },
+        { path: 'setting', redirect: '/live2d', meta: { requiresAuth: true, requiresRole: 'admin' } },
         { path: 'live2d', name: 'live2d', component: Live2D, meta: { requiresAuth: true, requiresRole: 'admin' } },
         { path: 'dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
         { path: 'visitor-report', name: 'visitor-report', component: VisitorReport, meta: { requiresAuth: true, requiresRole: 'admin' } },

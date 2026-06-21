@@ -99,8 +99,7 @@ class TourismRecommendationService(
         templates = self.list_route_templates()
         stops = defaultdict(list)
         for stop in self.list_route_stops():
-            if stop.get('enabled'):
-                stops[stop['template_id']].append(stop)
+            stops[stop['template_id']].append(stop)
         materials = defaultdict(list)
         for material in self.list_explanation_materials():
             materials[material['attraction_id']].append(material)

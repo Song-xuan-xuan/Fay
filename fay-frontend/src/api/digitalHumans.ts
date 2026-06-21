@@ -41,6 +41,7 @@ export function importLive2dResourceHumans() {
   return request.post('/api/digital-humans/import-live2d-resources', {}) as Promise<{
     success: boolean;
     imported: DigitalHuman[];
+    updated: DigitalHuman[];
     skipped: DigitalHuman[];
     items: DigitalHuman[];
   }>;

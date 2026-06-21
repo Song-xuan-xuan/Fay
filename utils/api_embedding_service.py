@@ -101,7 +101,7 @@ class ApiEmbeddingService:
         if not model_path:
             raise ValueError(
                 "未配置本地 embedding 模型路径，请设置 "
-                "embedding_api_model=model/bge-large-zh-v1.5 或 EMBEDDING_MODEL_PATH"
+                "embedding_api_model 为本地模型路径，或设置 EMBEDDING_MODEL_PATH"
             )
         return LocalEmbeddingBackend(model_name or model_path, model_path)
 

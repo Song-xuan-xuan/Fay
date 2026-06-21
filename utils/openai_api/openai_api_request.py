@@ -183,7 +183,7 @@ def chat3(text):
 
 def embedding():
     response = client.embeddings.create(
-        model="bge-large-zh-1.5",
+        model="BAAI/bge-m3",
         input=["你好，给我讲一个故事，大概100字"],
     )
     embeddings = response.data[0].embedding

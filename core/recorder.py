@@ -8,6 +8,7 @@ from queue import Queue
 
 from asr.ali_nls import ALiNls
 from asr.funasr import FunASR
+from asr.zhipu_api import ZhipuASR
 from core import wsa_server
 from scheduler.thread_manager import MyThread
 from utils import util
@@ -61,6 +62,8 @@ class Recorder:
             asrcli = ALiNls(self.username)
         elif self.ASRMode == "funasr" or self.ASRMode == "sensevoice":
             asrcli = FunASR(self.username)
+        elif self.ASRMode == "zhipu":
+            asrcli = ZhipuASR(self.username)
         return asrcli
 
     def save_buffer_to_file(self, buffer):
@@ -96,13 +99,13 @@ class Recorder:
         self.__processing = True
         t = time.time()
         tm = time.time()
-        if self.ASRMode == "funasr"  or self.ASRMode == "sensevoice":
+        if self.ASRMode == "funasr"  or self.ASRMode == "sensevoice" or self.ASRMode == "zhipu":
             file_url = self.save_buffer_to_file(audio_data)
             self.__aLiNls.send_url(file_url)
         
         # return
         # 等待结果返回
-        asr_timeout = 10 if (self.ASRMode == "funasr" or self.ASRMode == "sensevoice") else 1
+        asr_timeout = 30 if self.ASRMode == "zhipu" else 10 if (self.ASRMode == "funasr" or self.ASRMode == "sensevoice") else 1
         while not iat.done and time.time() - t < asr_timeout:
             time.sleep(0.01)
         text = iat.finalResults

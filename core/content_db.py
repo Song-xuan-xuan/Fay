@@ -242,6 +242,17 @@ class Content_Db:
         conn.close()
         return record
 
+    @synchronized
+    def get_message_session_id(self, msg_id):
+        conn = sqlite3.connect("memory/fay.db")
+        cur = conn.cursor()
+        cur.execute("SELECT session_id FROM T_Msg WHERE id = ?", (msg_id,))
+        row = cur.fetchone()
+        conn.close()
+        if not row or row[0] is None:
+            return None
+        return int(row[0])
+
     # 添加对话采纳记录
     @synchronized
     def adopted_message(self, msg_id):

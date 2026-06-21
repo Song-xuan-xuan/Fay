@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -53,6 +53,8 @@ def _audit_management_action(action, resource='', details=None):
 
 @app.before_request
 def require_management_admin():
+    if request.method == 'OPTIONS':
+        return None
     if not _is_management_api_path(request.path) or not auth_service.auth_enabled():
         return None
     auth_header = request.headers.get('Authorization', '')
@@ -214,6 +216,16 @@ def set_tool_state(server_id, tool_name, enabled):
     mcp_tool_states[server_id][tool_name] = enabled
     # 立即保存到文件
     save_mcp_tool_states()
+
+
+def remove_deleted_server_state(server_id: int):
+    """清理已删除 MCP server 的工具、资源和预启动状态。"""
+    if server_id in mcp_tool_states:
+        del mcp_tool_states[server_id]
+        save_mcp_tool_states()
+    tool_registry.remove_server(server_id)
+    resource_registry.remove_server(server_id)
+    prestart_registry.remove_server(server_id)
 
 
 def _attach_prestart_metadata(server_id: int, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -458,21 +470,18 @@ def call_mcp_tool(server_id, method, params=None, skip_enabled_check=False):
 
 register_kb_routes(app, lambda: mcp_servers, call_mcp_tool)
 
-# 主页路由 - 直接重定向到Page3页面
+# 旧版模板页面已停用，MCP 管理统一通过主控台隐藏路由 /mcp 访问。
 @app.route('/')
 def index():
-    return redirect(url_for('page3'))
+    return jsonify({"error": "MCP legacy page disabled"}), 404
 
-# MCP页面路由 - Page3.html
 @app.route('/Page3')
 def page3():
-    # 传递MCP服务器数据到模板
-    return render_template('Page3.html', mcp_servers=mcp_servers)
+    return jsonify({"error": "MCP legacy page disabled"}), 404
 
-# 设置页面路由 - 为了处理模板中的链接，但实际重定向到Page3
 @app.route('/setting')
 def setting():
-    return redirect(url_for('page3'))
+    return jsonify({"error": "MCP legacy page disabled"}), 404
 
 # API路由 - 获取所有MCP服务器
 @app.route('/api/mcp/servers', methods=['GET'])
@@ -835,7 +844,7 @@ def delete_server(server_id):
 
             # 删除服务器
             deleted_server = mcp_servers.pop(i)
-            tool_registry.remove_server(server_id)
+            remove_deleted_server_state(server_id)
             save_mcp_servers(mcp_servers)
             _audit_management_action(
                 'mcp_server_delete',

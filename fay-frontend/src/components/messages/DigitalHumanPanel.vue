@@ -1,9 +1,34 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useAppStore } from '../../stores/app';
+import { useAuthStore } from '../../stores/auth';
 import { useLive2dStore } from '../../stores/live2d';
+import {
+  buildDigitalHumanRenderUrl,
+  type DigitalHumanPanelContext,
+} from '../../utils/digitalHumanRenderUrl';
 
+const props = withDefaults(defineProps<{
+  viewContext?: DigitalHumanPanelContext;
+}>(), {
+  viewContext: 'default',
+});
+
+const appStore = useAppStore();
+const authStore = useAuthStore();
 const live2d = useLive2dStore();
 const activeHuman = computed(() => live2d.activeHuman);
+const activeRenderUrl = computed(() => {
+  if (!activeHuman.value?.render_url) {
+    return '';
+  }
+  const username = appStore.selectedUser?.[1] || authStore.user?.username || 'User';
+  return buildDigitalHumanRenderUrl(activeHuman.value, {
+    token: authStore.token,
+    username,
+    panel: props.viewContext,
+  });
+});
 
 onMounted(() => {
   if (!activeHuman.value) {
@@ -15,9 +40,9 @@ onMounted(() => {
 <template>
   <aside class="digital-human-panel" aria-label="数字人">
     <iframe
-      v-if="activeHuman && activeHuman.type !== 'image' && activeHuman.render_url"
+      v-if="activeHuman && activeHuman.type !== 'image' && activeRenderUrl"
       :key="activeHuman.id"
-      :src="activeHuman.render_url"
+      :src="activeRenderUrl"
       :title="`${activeHuman.name} 数字人`"
       allowtransparency="true"
       sandbox="allow-scripts allow-same-origin"

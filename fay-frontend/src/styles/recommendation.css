@@ -113,8 +113,25 @@
 }
 
 .route-stop strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--color-text-primary);
   font-size: 16px;
+}
+
+.route-stop strong em {
+  border-radius: 6px;
+  background: rgba(64, 158, 255, 0.1);
+  padding: 2px 7px;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.route-stop-node blockquote {
+  border-left-color: var(--color-border);
 }
 
 .route-stop span,
@@ -135,6 +152,17 @@
 .manage-select {
   width: 100%;
   margin-bottom: 12px;
+}
+
+.maintenance-advanced {
+  margin: 8px 0 14px;
+}
+
+.strategy-hint {
+  margin: 0 0 14px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .weight-grid {

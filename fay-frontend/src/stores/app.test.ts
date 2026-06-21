@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useAppStore } from './app';
 import { useAuthStore } from './auth';
 import { getMemberList } from '../api/message';
+import { getData, getRunStatus } from '../api/setting';
 
 vi.mock('../api/message', () => ({
   getAudioConfig: vi.fn(),
@@ -29,6 +30,8 @@ describe('useAppStore user selection state', () => {
       removeItem: vi.fn((key: string) => storage.delete(key)),
     });
     vi.mocked(getMemberList).mockReset();
+    vi.mocked(getData).mockReset();
+    vi.mocked(getRunStatus).mockReset();
   });
 
   it('keeps the selected user reference stable for repeated own-user loads', async () => {
@@ -49,5 +52,48 @@ describe('useAppStore user selection state', () => {
     await appStore.loadUsers();
 
     expect(appStore.selectedUser).toBe(selected);
+  });
+
+  it('normalizes old OpenAI Chinese voice payloads to the full verified Chinese list', async () => {
+    vi.mocked(getRunStatus).mockResolvedValue({ status: false });
+    vi.mocked(getData).mockResolvedValue({
+      config: {},
+      voice_list: [
+        { id: 'zh-CN-XiaoxiaoNeural', name: '晓晓（女声）' },
+        { id: 'zh-CN-YunxiNeural', name: '云溪（男声）' },
+        { id: 'zh-CN-YunyangNeural', name: '云阳（男声）' },
+        { id: 'zh-CN-XiaoyiNeural', name: '晓伊（女声）' },
+        { id: 'zh-CN-YunjianNeural', name: '云健（男声）' },
+        { id: 'zh-CN-XiaoxuanNeural', name: '晓萱（女声）' },
+        { id: 'zh-CN-YunxiaNeural', name: '云夏（女声）' },
+      ],
+    });
+    const appStore = useAppStore();
+
+    await appStore.loadBootstrapData();
+
+    const voiceIds = appStore.voiceList.map((voice) => voice.value);
+    expect(appStore.voiceList).toHaveLength(14);
+    expect(voiceIds).toContain('zh-CN-liaoning-XiaobeiNeural');
+    expect(voiceIds).toContain('zh-HK-WanLungNeural');
+    expect(voiceIds).toContain('zh-TW-YunJheNeural');
+    expect(voiceIds).not.toContain('zh-CN-XiaoxuanNeural');
+    expect(appStore.voiceList.every((voice) => /（.+声）/.test(voice.label))).toBe(true);
+  });
+
+  it('normalizes websocket OpenAI Chinese voice payloads before updating editor options', () => {
+    const appStore = useAppStore();
+
+    appStore.receiveWebsocketPayload({
+      voiceList: [
+        { id: 'zh-CN-XiaoxiaoNeural', name: '晓晓（女声）' },
+        { id: 'zh-CN-XiaoxuanNeural', name: '晓萱（女声）' },
+      ],
+    });
+
+    const voiceIds = appStore.voiceList.map((voice) => voice.value);
+    expect(appStore.voiceList).toHaveLength(14);
+    expect(voiceIds).toContain('zh-CN-shaanxi-XiaoniNeural');
+    expect(voiceIds).not.toContain('zh-CN-XiaoxuanNeural');
   });
 });

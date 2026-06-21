@@ -66,12 +66,17 @@ proxy_config = None
 ASR_mode = None
 local_asr_ip = None 
 local_asr_port = None 
+asr_api_url = None
+asr_api_key = None
+asr_api_model = None
+asr_api_timeout = None
 ltp_mode = None
 gpt_base_url = None
 big_model_engine = None
 big_model_base_url = None
 big_model_api_key = None
 tts_module = None
+openai_tts_speed = None
 key_ali_tss_key_id = None
 key_ali_tss_key_secret = None
 key_ali_tss_app_key = None
@@ -86,8 +91,9 @@ config_json_path = None
 use_bionic_memory = None
 
 # Embedding API 配置全局变量
-embedding_api_model = 'model/bge-large-zh-v1.5'
-embedding_api_base_url = 'local'
+DEFAULT_EMBEDDING_API_MODEL = 'BAAI/bge-m3'
+embedding_api_model = DEFAULT_EMBEDDING_API_MODEL
+embedding_api_base_url = None
 embedding_api_key = None
 
 SYSTEM_CONFIG_ENV_KEY = 'FAY_SYSTEM_CONF_JSON'
@@ -314,12 +320,17 @@ def load_config(force_reload=False):
     global ASR_mode
     global local_asr_ip 
     global local_asr_port
+    global asr_api_url
+    global asr_api_key
+    global asr_api_model
+    global asr_api_timeout
     global ltp_mode 
     global gpt_base_url
     global big_model_engine
     global big_model_base_url
     global big_model_api_key
     global tts_module
+    global openai_tts_speed
     global key_ali_tss_key_id
     global key_ali_tss_key_secret
     global key_ali_tss_app_key
@@ -541,6 +552,10 @@ def load_config(force_reload=False):
     ASR_mode = system_config.get('key', 'ASR_mode', fallback=None)
     local_asr_ip = system_config.get('key', 'local_asr_ip', fallback=None)
     local_asr_port = system_config.get('key', 'local_asr_port', fallback=None)
+    asr_api_url = system_config.get('key', 'asr_api_url', fallback=None)
+    asr_api_key = system_config.get('key', 'asr_api_key', fallback=None)
+    asr_api_model = system_config.get('key', 'asr_api_model', fallback='glm-asr-2512')
+    asr_api_timeout = system_config.get('key', 'asr_api_timeout', fallback='30')
     proxy_config = system_config.get('key', 'proxy_config', fallback=None)
     ltp_mode = system_config.get('key', 'ltp_mode', fallback=None)
     gpt_base_url = system_config.get('key', 'gpt_base_url', fallback=None)
@@ -548,13 +563,15 @@ def load_config(force_reload=False):
     big_model_base_url = _optional_config_value(system_config, 'key', 'big_model_base_url')
     big_model_api_key = _optional_config_value(system_config, 'key', 'big_model_api_key')
     tts_module = system_config.get('key', 'tts_module', fallback=None)
+    openai_tts_speed = system_config.get('key', 'openai_tts_speed', fallback='1.0')
     volcano_tts_appid = system_config.get('key', 'volcano_tts_appid', fallback=None)
     volcano_tts_access_token = system_config.get('key', 'volcano_tts_access_token', fallback=None)
     volcano_tts_cluster = system_config.get('key', 'volcano_tts_cluster', fallback=None)
     volcano_tts_voice_type = system_config.get('key', 'volcano_tts_voice_type', fallback=None)
 
     # 读取 Embedding API 配置（未单独配置时复用 LLM）
-    embedding_api_model = system_config.get('key', 'embedding_api_model', fallback='BAAI/bge-large-zh-v1.5')
+    _embedding_model_cfg = _optional_config_value(system_config, 'key', 'embedding_api_model')
+    embedding_api_model = _embedding_model_cfg or DEFAULT_EMBEDDING_API_MODEL
     _embedding_base_url_cfg = system_config.get('key', 'embedding_base_url', fallback='')
     embedding_api_base_url = _embedding_base_url_cfg.strip() or gpt_base_url
     _embedding_api_key_cfg = system_config.get('key', 'embedding_api_key', fallback='')
@@ -604,11 +621,16 @@ def load_config(force_reload=False):
         'ASR_mode': ASR_mode,
         'local_asr_ip': local_asr_ip,
         'local_asr_port': local_asr_port,
+        'asr_api_url': asr_api_url,
+        'asr_api_key': asr_api_key,
+        'asr_api_model': asr_api_model,
+        'asr_api_timeout': asr_api_timeout,
         'proxy_config': proxy_config,
         'ltp_mode': ltp_mode,
 
         'gpt_base_url': gpt_base_url,
         'tts_module': tts_module,
+        'openai_tts_speed': openai_tts_speed,
         'ali_tss_key_id': key_ali_tss_key_id,
         'ali_tss_key_secret': key_ali_tss_key_secret,
         'ali_tss_app_key': key_ali_tss_app_key,

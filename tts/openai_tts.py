@@ -1,7 +1,24 @@
 import time
 import requests
 from pydub import AudioSegment
+from tts.openai_tts_voices import get_openai_tts_voice_list
 from utils import util, config_util
+
+DEFAULT_OPENAI_TTS_SPEED = 1.0
+
+
+def _get_openai_tts_speed():
+    raw_value = getattr(config_util, "openai_tts_speed", None)
+    if raw_value is None or str(raw_value).strip() == "":
+        return DEFAULT_OPENAI_TTS_SPEED
+    try:
+        speed = float(raw_value)
+        if speed <= 0:
+            raise ValueError("speed must be positive")
+        return speed
+    except (TypeError, ValueError):
+        util.log(2, f"[OpenAI TTS] openai_tts_speed配置无效，使用默认值: {DEFAULT_OPENAI_TTS_SPEED}")
+        return DEFAULT_OPENAI_TTS_SPEED
 
 
 class Speech:
@@ -32,7 +49,8 @@ class Speech:
             "model": "tts-1",
             "voice": voice,
             "input": text,
-            "response_format": "mp3"
+            "response_format": "mp3",
+            "speed": _get_openai_tts_speed()
         }
 
         util.log(1, f"[OpenAI TTS] 请求参数: {payload}")

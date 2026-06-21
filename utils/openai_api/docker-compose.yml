@@ -18,7 +18,7 @@ services:
                                                   capabilities: [gpu]
                 environment:
                         - MODEL_PATH=/models/chatglm3-6b
-                        - EMBEDDING_PATH=/models/bge-large-zh-v1.5
+                        - EMBEDDING_PATH=/models/embedding-model
                         - TZ=Asia/Shanghai
                         - PYTHONDONTWRITEBYTECODE=1
                         - PYTHONUNBUFFERED=1
@@ -28,7 +28,7 @@ services:
                 volumes:
                         - ./:/glm3
                         - ${LOCAL_MODEL_PATH}:/models/chatglm3-6b
-                        - ${LOCAL_EMBEDDING_MODEL_PATH}:/models/bge-large-zh-v1.5
+                        - ${LOCAL_EMBEDDING_MODEL_PATH}:/models/embedding-model
                 command:
                         - sh
                         - -c

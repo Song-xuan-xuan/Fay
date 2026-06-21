@@ -28,6 +28,7 @@ except Exception:
 
 import fay_booter
 from tts import tts_voice
+from tts.openai_tts_voices import get_openai_tts_voice_list
 from gevent import pywsgi
 try:
     # Use gevent.sleep to avoid blocking the gevent loop; fallback to time.sleep if unavailable
@@ -49,6 +50,7 @@ from gui.avatar_routes import register_avatar_routes
 from gui.dashboard_routes import register_dashboard_routes
 from gui.digital_human_routes import register_digital_human_routes
 from gui.tourism_recommendation_routes import register_tourism_recommendation_routes
+from gui.vue_public_assets import FRONTEND_PUBLIC_ROUTE_PREFIX, resolve_vue_public_asset
 import fay_booter
 from flask_httpauth import HTTPBasicAuth
 from core import qa_service
@@ -61,6 +63,7 @@ monitor_thread = None
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VUE_DIST_DIR = os.path.join(PROJECT_ROOT, "fay-frontend", "dist")
 VUE_ASSETS_DIR = os.path.join(VUE_DIST_DIR, "assets")
+ASR_UPLOAD_DIR = os.path.join(PROJECT_ROOT, "cache_data", "asr_uploads")
 
 __app = Flask(__name__)
 # 禁用 Flask 默认日志
@@ -223,6 +226,15 @@ def _forbid_unless_session_owner(session_id, username=None):
     if session and int(session.get('user_id') or 0) == int(current.get('uid') or 0):
         return None
     return jsonify({'error': '权限不足'}), 403
+
+
+def _save_asr_upload(file_storage):
+    raw_ext = os.path.splitext(file_storage.filename or "")[1].lower()
+    ext = raw_ext if re.fullmatch(r"\.[a-z0-9]{1,8}", raw_ext or "") else ".webm"
+    os.makedirs(ASR_UPLOAD_DIR, exist_ok=True)
+    file_path = os.path.join(ASR_UPLOAD_DIR, f"{uuid.uuid4().hex}{ext}")
+    file_storage.save(file_path)
+    return file_path
 
 
 def _normalize_llm_proxy_role(role):
@@ -641,16 +653,7 @@ def api_get_data():
             send_voice_list = {"voiceList": voice_list}
             _push_web_cmd(send_voice_list)
         elif config_util.tts_module == 'openai':
-            # 只包含你的 TTS 服务实际支持的音色
-            voice_list = [
-                {"id": "zh-CN-XiaoxiaoNeural", "name": "晓晓（女声）"},
-                {"id": "zh-CN-YunxiNeural", "name": "云溪（男声）"},
-                {"id": "zh-CN-YunyangNeural", "name": "云阳（男声）"},
-                {"id": "zh-CN-XiaoyiNeural", "name": "晓伊（女声）"},
-                {"id": "zh-CN-YunjianNeural", "name": "云健（男声）"},
-                {"id": "zh-CN-XiaoxuanNeural", "name": "晓萱（女声）"},
-                {"id": "zh-CN-YunxiaNeural", "name": "云夏（女声）"}
-            ]
+            voice_list = get_openai_tts_voice_list()
             send_voice_list = {"voiceList": voice_list}
             _push_web_cmd(send_voice_list)
 
@@ -809,6 +812,41 @@ def api_send():
         return jsonify({'result': 'error', 'message': '无效的JSON数据'})
     except Exception as e:
         return jsonify({'result': 'error', 'message': f'发送消息时出错: {e}'}), 500
+
+
+@__app.route('/api/asr/transcribe', methods=['POST'])
+@auth_service.require_auth
+def api_asr_transcribe():
+    username = request.form.get('username') or ''
+    session_id = request.form.get('session_id') or None
+    if not username:
+        return jsonify({'success': False, 'error': '用户名不能为空'}), 400
+    forbidden = _forbid_unless_self_or_admin(username)
+    if forbidden:
+        return forbidden
+    if session_id not in (None, ''):
+        forbidden = _forbid_unless_session_owner(session_id, username)
+        if forbidden:
+            return forbidden
+    if 'audio' not in request.files:
+        return jsonify({'success': False, 'error': '未上传音频文件'}), 400
+
+    upload_path = ''
+    try:
+        from asr import zhipu_api
+
+        upload_path = _save_asr_upload(request.files['audio'])
+        text = zhipu_api.transcribe_file(upload_path)
+        return jsonify({'success': True, 'text': text})
+    except Exception as e:
+        util.log(1, f'短语音输入识别失败: {e}')
+        return jsonify({'success': False, 'error': f'语音识别失败: {e}'}), 500
+    finally:
+        if upload_path and os.path.exists(upload_path):
+            try:
+                os.remove(upload_path)
+            except Exception as cleanup_error:
+                util.log(1, f'清理短语音上传文件失败: {cleanup_error}')
 
 # 获取指定用户的消息记录（支持分页）
 @__app.route('/api/get-msg', methods=['post'])
@@ -1726,12 +1764,16 @@ def vue_assets(filename):
         return send_from_directory(VUE_ASSETS_DIR, filename)
     return jsonify({'error': '资源未找到'}), 404
 
+@__app.route(f'{FRONTEND_PUBLIC_ROUTE_PREFIX}/<path:filename>', methods=['get'])
+def vue_public_assets(filename):
+    asset_path = resolve_vue_public_asset(PROJECT_ROOT, filename)
+    if asset_path:
+        return send_from_directory(os.path.dirname(asset_path), os.path.basename(asset_path))
+    return jsonify({'error': '资源未找到'}), 404
+
 @__app.route('/Page3', methods=['get'])
 def Page3():
-    try:
-        return render_template('Page3.html')
-    except Exception as e:
-        return f"Error loading settings page: {e}", 500
+    return jsonify({'error': 'MCP legacy page disabled'}), 404
 
 
 # 输出的音频http

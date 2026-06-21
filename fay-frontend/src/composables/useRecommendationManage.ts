@@ -30,6 +30,7 @@ import {
   type RecommendationStop,
   type RecommendationTemplate,
 } from '../api/recommendation';
+import { createRecommendationWorkbench } from './recommendationWorkbench';
 
 export function useRecommendationManage() {
   const state = createManageState();
@@ -38,8 +39,9 @@ export function useRecommendationManage() {
   const creators = createCreators(state, loaders);
   const removers = createRemovers(state, loaders);
   const transfers = createTransfers(state, loaders);
+  const workbench = createRecommendationWorkbench(state, loaders);
   onMounted(loaders.loadAll);
-  return { ...state, ...loaders, ...editors, ...creators, ...removers, ...transfers };
+  return { ...state, ...loaders, ...editors, ...creators, ...removers, ...transfers, ...workbench };
 }
 
 function createManageState() {
@@ -158,6 +160,11 @@ function createCreators(state: ManageState, loaders: Loaders) {
     await loaders.loadStops();
   }
 
+  async function handleSelectTemplateId(templateId: number) {
+    state.selectedTemplateId.value = templateId;
+    await loaders.loadStops();
+  }
+
   async function handleCreateStop() {
     if (!state.selectedTemplateId.value) return;
     await createRecommendationStop(state.selectedTemplateId.value, { ...state.stopForm });
@@ -180,7 +187,10 @@ function createCreators(state: ManageState, loaders: Loaders) {
     await loaders.loadAll();
   }
 
-  return { handleCreateAttraction, handleCreateTemplate, handleSelectTemplate, handleCreateStop, handleCreateEdge, handleCreateMaterial };
+  return {
+    handleCreateAttraction, handleCreateTemplate, handleSelectTemplate, handleSelectTemplateId,
+    handleCreateStop, handleCreateEdge, handleCreateMaterial,
+  };
 }
 
 function createRemovers(state: ManageState, loaders: Loaders) {

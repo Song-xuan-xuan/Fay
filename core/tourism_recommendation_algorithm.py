@@ -1,5 +1,14 @@
 import math
 
+from core.tourism_recommendation_nodes import (
+    attraction_stop,
+    draft_stop,
+    is_draft_stop,
+    is_route_node,
+    route_node_stop,
+    stay_minutes,
+)
+
 
 DEFAULT_CONFIG = {
     'weights': {
@@ -49,9 +58,18 @@ def _prepare_stops(template, request_data, stops_by_template, attractions, edges
     prepared = []
     template_stops = stops_by_template.get(template['id'], [])
     for stop in sorted(template_stops, key=lambda item: item.get('order_index') or 0):
+        if is_route_node(stop):
+            prepared.append(route_node_stop(stop))
+            continue
         attraction = attractions.get(stop.get('attraction_id'))
-        if attraction and attraction.get('enabled'):
-            prepared.append({**attraction, 'stay_minutes': stop.get('stay_minutes') or attraction.get('visit_minutes', 30)})
+        if attraction and attraction.get('enabled') and stop.get('enabled'):
+            prepared.append(attraction_stop(stop, attraction))
+            continue
+        if is_draft_stop(stop, attraction):
+            prepared.append(draft_stop(stop, attraction))
+            risks.append('路线包含待确认点位，已按文档展示但不参与推荐评分。')
+            continue
+        if not stop.get('enabled'):
             continue
         replacement = _replacement_stop(request_data, prepared, attractions, edges)
         if replacement:
@@ -86,15 +104,17 @@ def _build_timeline(request_data, stops, edges, config, risks):
     total_walk = 0
     previous_id = None
     for stop in stops:
-        walk = _walk_minutes(previous_id, stop['id'], edges, config)
-        if previous_id and walk == config['default_walk_minutes']:
+        score_eligible = stop.get('score_eligible', True)
+        walk = _walk_minutes(previous_id, stop['id'], edges, config) if score_eligible else 0
+        if previous_id and score_eligible and walk == config['default_walk_minutes']:
             risks.append('部分点位步行时间未维护，已使用默认估算。')
         current += walk
         start = current
-        current += int(stop.get('stay_minutes') or stop.get('visit_minutes') or 30)
+        current += stay_minutes(stop)
         total_walk += walk
         items.append({**stop, 'walk_minutes': walk, 'start_time': _format_time(start), 'end_time': _format_time(current)})
-        previous_id = stop['id']
+        if score_eligible:
+            previous_id = stop['id']
     return {'items': items, 'total_minutes': current - _parse_time(request_data.get('arrival_time') or '09:00'), 'walk_minutes': total_walk}
 
 
@@ -113,13 +133,14 @@ def _walk_minutes(from_id, to_id, edges, config):
 def _score_template(request_data, template, stops, timeline, config):
     interests = _string_set(request_data.get('interests'))
     tags = _string_set(template.get('interest_tags'))
-    for stop in stops:
+    score_stops = [stop for stop in stops if stop.get('score_eligible', True)]
+    for stop in score_stops:
         tags.update(_string_set(stop.get('tags')))
     interest_match = min(1.0, len(tags & interests) / max(1, len(interests))) if interests else 0.5
-    satisfaction = _avg([float(item.get('satisfaction') or 0) / 5 for item in stops])
-    popularity = _avg([float(item.get('popularity') or 0) / 100 for item in stops])
+    satisfaction = _avg([float(item.get('satisfaction') or 0) / 5 for item in score_stops])
+    popularity = _avg([float(item.get('popularity') or 0) / 100 for item in score_stops])
     time_fit = _time_fit(request_data.get('time_budget_minutes'), timeline['total_minutes'])
-    intensity_fit = _intensity_fit(request_data.get('intensity'), stops)
+    intensity_fit = _intensity_fit(request_data.get('intensity'), score_stops)
     return _weighted_breakdown(config['weights'], interest_match, satisfaction, popularity, time_fit, intensity_fit)
 
 
@@ -152,6 +173,16 @@ def _route_payload(template, stops, timeline, breakdown, risks, materials):
 
 
 def _stop_payload(stop, materials):
+    if not stop.get('score_eligible', True):
+        return {
+            'id': stop.get('route_stop_id') or stop.get('id') or 0, 'name': stop['name'],
+            'category': stop.get('category') or '', 'tags': stop.get('tags') or [],
+            'walk_minutes': stop.get('walk_minutes', 0), 'stay_minutes': stop.get('stay_minutes') or 0,
+            'start_time': stop.get('start_time'), 'end_time': stop.get('end_time'),
+            'difficulty': stop.get('difficulty') or 0, 'indoor': bool(stop.get('indoor')),
+            'node_type': stop.get('node_type') or 'path', 'score_eligible': False,
+            'explanation_focus': stop.get('explanation_focus') or '', 'script': stop.get('script') or '',
+        }
     material = _choose_material(stop, materials.get(stop['id'], []))
     return {
         'id': stop['id'],
@@ -164,6 +195,8 @@ def _stop_payload(stop, materials):
         'end_time': stop.get('end_time'),
         'difficulty': stop.get('difficulty') or 1,
         'indoor': bool(stop.get('indoor')),
+        'node_type': stop.get('node_type') or 'attraction',
+        'score_eligible': True,
         'explanation_focus': material.get('focus') or material.get('title') or f"介绍{stop['name']}的核心看点。",
         'script': material.get('script') or f"现在推荐您游览{stop['name']}，这里适合结合您的兴趣重点讲解。",
     }

@@ -32,6 +32,49 @@ def _serialize_for_json(obj: Any):
     return str(obj)
 
 
+def _server_search_text(server: Dict[str, Any]) -> str:
+    parts = [
+        server.get('name', ''),
+        server.get('command', ''),
+        server.get('cwd', ''),
+    ]
+    parts.extend(server.get('args') or [])
+    env = server.get('env') or {}
+    if isinstance(env, dict):
+        for key, value in env.items():
+            parts.extend([key, value])
+    return ' '.join(str(part) for part in parts).replace('\\', '/').lower()
+
+
+def _looks_like_yueshen_rag_server(server: Dict[str, Any]) -> bool:
+    text = _server_search_text(server)
+    name = str(server.get('name', '')).strip().lower()
+    return (
+        ('yueshen' in name and 'rag' in name)
+        or 'yueshen_rag' in text
+        or 'mcp_servers/yueshen_rag/server.py' in text
+        or 'yueshen_' in text
+    )
+
+
+def _error_message(result: Any) -> str:
+    if isinstance(result, str):
+        return result
+    serialized = _serialize_for_json(result)
+    if isinstance(serialized, dict):
+        for key in ('error', 'message', 'detail'):
+            if serialized.get(key):
+                return str(serialized[key])
+    return str(serialized)
+
+
+def _failure_status(result: Any) -> int:
+    message = _error_message(result)
+    if '请先连接' in message or '未找到服务器连接' in message or '服务器离线' in message:
+        return 503
+    return 500
+
+
 def _is_local_hostname(hostname: str) -> bool:
     value = str(hostname or '').strip().lower()
     return value in {'localhost', '127.0.0.1', '::1'} or value.startswith('127.')
@@ -137,8 +180,7 @@ class KnowledgeBaseRoutes:
 
     def find_yueshen_server_id(self) -> Optional[int]:
         for server in self.get_mcp_servers():
-            name = str(server.get('name', '')).lower()
-            if 'yueshen' in name and 'rag' in name and server.get('status') == 'online':
+            if server.get('status') == 'online' and _looks_like_yueshen_rag_server(server):
                 return int(server['id'])
         return None
 
@@ -230,8 +272,13 @@ class KnowledgeBaseRoutes:
             "batch_size": int(data.get("batch_size", 32)),
         }
         success, result = self.call_yueshen_tool("ingest_yueshen", params)
-        status = 200 if success else 500
-        return jsonify({"success": success, "result": _serialize_for_json(result)}), status
+        if success:
+            return jsonify({"success": True, "result": _serialize_for_json(result)})
+        return jsonify({
+            "success": False,
+            "error": _error_message(result),
+            "result": _serialize_for_json(result),
+        }), _failure_status(result)
 
     def query(self):
         data = request.json or {}
@@ -240,17 +287,28 @@ class KnowledgeBaseRoutes:
             return jsonify({"success": False, "error": "query 不能为空"}), 400
         params = {"query": query, "top_k": int(data.get("top_k", 5))}
         success, result = self.call_yueshen_tool("query_yueshen", params)
-        status = 200 if success else 500
-        return jsonify({"success": success, "result": _serialize_for_json(result)}), status
+        if success:
+            return jsonify({"success": True, "result": _serialize_for_json(result)})
+        return jsonify({
+            "success": False,
+            "error": _error_message(result),
+            "result": _serialize_for_json(result),
+        }), _failure_status(result)
 
     def stats(self):
         success, result = self.call_yueshen_tool("yueshen_stats", {})
-        status = 200 if success else 500
+        if success:
+            return jsonify({
+                "success": True,
+                "library_dir": _ensure_kb_library_dir(),
+                "result": _serialize_for_json(result),
+            })
         return jsonify({
-            "success": success,
+            "success": False,
+            "error": _error_message(result),
             "library_dir": _ensure_kb_library_dir(),
             "result": _serialize_for_json(result),
-        }), status
+        }), _failure_status(result)
 
 
 def register_kb_routes(

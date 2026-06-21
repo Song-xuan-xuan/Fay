@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { MessageRecord } from '../../types';
+import { ASSISTANT_AVATAR_SRC, DEFAULT_USER_AVATAR_SRC } from '../../utils/assets';
 import { parseAssistantContent, renderMarkdownContent } from '../../utils/messageContent';
 
 const props = defineProps<{
@@ -33,8 +34,8 @@ const messageImages = computed(() => (
 ));
 const avatarSrc = computed(() => (
   props.message.type === 'fay'
-    ? '/static/images/Fay_send.png'
-    : props.userAvatar || '/static/images/User_send.png'
+    ? ASSISTANT_AVATAR_SRC
+    : props.userAvatar || DEFAULT_USER_AVATAR_SRC
 ));
 
 function normalizeMessageImageSrc(image: unknown) {

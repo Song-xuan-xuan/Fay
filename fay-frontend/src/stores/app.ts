@@ -2,17 +2,11 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { getAudioConfig, getChatSessions, getMemberList, getSystemStatus, type ChatSession } from '../api/message';
 import { getData, getRunStatus, startLive as startLiveApi, stopLive as stopLiveApi, submitConfig } from '../api/setting';
-import type { LiveState, MessageRecord, SystemStatus, UserRecord, VoiceOption, WebsocketPayload } from '../types';
+import type { LiveState, MessageRecord, SystemStatus, UserRecord, WebsocketPayload } from '../types';
+import { normalizeVoiceOptions } from '../config/openaiTtsVoices';
 import { buildAudioConfigPatch, toggleAudioFlag, type AudioConfig } from '../utils/audioControls';
 import { useAuthStore } from './auth';
 import { useLive2dStore } from './live2d';
-
-function normalizeVoice(voice: VoiceOption) {
-  return {
-    value: voice.value || voice.id || '',
-    label: voice.label || voice.name || voice.id || '',
-  };
-}
 
 function isSameUserRecord(left: UserRecord | null, right: UserRecord | null) {
   return Boolean(left && right && left[0] === right[0] && left[1] === right[1] && left[2] === right[2]);
@@ -74,7 +68,7 @@ export const useAppStore = defineStore('app', () => {
   async function loadBootstrapData() {
     const [status, data] = await Promise.all([getRunStatus(), getData()]);
     liveState.value = status.status ? 1 : 0;
-    voiceList.value = (data.voice_list || []).map(normalizeVoice);
+    voiceList.value = normalizeVoiceOptions(data.voice_list || []);
     const digitalHumans = data.config?.digital_humans;
     if (digitalHumans?.items?.length) {
       const live2d = useLive2dStore();
@@ -127,7 +121,7 @@ export const useAppStore = defineStore('app', () => {
       panelMsg.value = payload.panelMsg;
     }
     if (payload.voiceList !== undefined) {
-      voiceList.value = payload.voiceList.map(normalizeVoice);
+      voiceList.value = normalizeVoiceOptions(payload.voiceList);
     }
     if (payload.digitalHuman !== undefined) {
       useLive2dStore().receiveDigitalHuman(payload.digitalHuman, payload.digitalHumanActiveId);

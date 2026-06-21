@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Mic, MicOff, Power, Send, Volume2, VolumeX, Image as ImageIcon, X } from '@lucide/vue';
+import { AudioLines, Mic, MicOff, Power, Send, Volume2, VolumeX, X } from '@lucide/vue';
 import { ElMessage } from 'element-plus';
+import { BRAND_SERVICE_NAME } from '../../config/brand';
 
 defineProps<{
   modelValue: string;
@@ -10,12 +11,16 @@ defineProps<{
   micEnabled: boolean;
   speakerEnabled: boolean;
   showManagementControls: boolean;
+  canVoiceInput: boolean;
+  voiceRecording: boolean;
+  voiceTranscribing: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void;
   (event: 'submit'): void;
   (event: 'toggle-mic'): void;
+  (event: 'toggle-voice-input'): void;
   (event: 'toggle-speaker'): void;
   (event: 'start-live'): void;
   (event: 'images-change', images: File[]): void;
@@ -131,6 +136,15 @@ onUnmounted(() => {
       @update:model-value="emit('update:modelValue', $event)"
       @keydown.enter.exact.prevent="emit('submit')"
     />
+    <el-button
+      class="voice-input-button"
+      :type="voiceRecording ? 'danger' : 'default'"
+      :icon="AudioLines"
+      :loading="voiceTranscribing"
+      :disabled="voiceTranscribing || (!canVoiceInput && !voiceRecording)"
+      :aria-label="voiceRecording ? '停止语音输入并发送' : '语音输入'"
+      @click="emit('toggle-voice-input')"
+    />
     <el-button type="primary" :icon="Send" :disabled="!canSend && imagePreviews.length === 0" @click="emit('submit')">发送</el-button>
     <div v-if="showManagementControls" class="composer-controls">
       <el-button
@@ -144,7 +158,7 @@ onUnmounted(() => {
         :aria-label="speakerEnabled ? '关闭扬声器' : '开启扬声器'"
         @click="emit('toggle-speaker')"
       />
-      <el-button v-else :icon="Power" aria-label="启动 Fay 服务" @click="emit('start-live')" />
+      <el-button v-else :icon="Power" :aria-label="`启动 ${BRAND_SERVICE_NAME}`" @click="emit('start-live')" />
     </div>
   </footer>
 </template>
@@ -152,7 +166,7 @@ onUnmounted(() => {
 <style scoped>
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: end;
   gap: 8px;
 }
@@ -163,6 +177,12 @@ onUnmounted(() => {
 }
 
 .composer-controls :deep(.el-button) {
+  min-width: 44px;
+  min-height: 40px;
+  margin-left: 0;
+}
+
+.voice-input-button {
   min-width: 44px;
   min-height: 40px;
   margin-left: 0;

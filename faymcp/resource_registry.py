@@ -55,11 +55,15 @@ def _save_states() -> None:
         if uri_states:
             states[str(sid)] = uri_states
     try:
-        os.makedirs(os.path.dirname(_STATES_FILE), exist_ok=True)
-        with open(_STATES_FILE, "w", encoding="utf-8") as f:
-            json.dump(states, f, ensure_ascii=False, indent=4)
+        _write_states(states)
     except Exception:
         pass
+
+
+def _write_states(states: Dict[str, Dict[str, bool]]) -> None:
+    os.makedirs(os.path.dirname(_STATES_FILE), exist_ok=True)
+    with open(_STATES_FILE, "w", encoding="utf-8") as f:
+        json.dump(states, f, ensure_ascii=False, indent=4)
 
 
 def set_server_resources(
@@ -121,3 +125,14 @@ def set_resource_enabled(server_id: int, uri: str, enabled: bool) -> bool:
 def clear_server_resources(server_id: int) -> None:
     with _lock:
         _server_resources.pop(server_id, None)
+
+
+def remove_server(server_id: int) -> None:
+    """Remove cached and persisted resource states for a deleted server."""
+    server_key = str(int(server_id))
+    with _lock:
+        _server_resources.pop(int(server_id), None)
+        states = _load_states()
+        if server_key in states:
+            del states[server_key]
+            _write_states(states)

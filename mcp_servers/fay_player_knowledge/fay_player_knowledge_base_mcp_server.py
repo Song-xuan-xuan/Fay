@@ -1678,7 +1678,7 @@ def make_tool_specs() -> Dict[str, Dict[str, Any]]:
             },
         },
         "kb_search": {
-            "description": "【核心工具】用自然语言问题搜索知识库，返回命中章节的完整内容（讲稿、代码、题目、图片URL）。回答用户问题前应优先调用此工具。如果章节包含图片，images[].src 为可直接访问的 HTTP 地址，请用 ![描述](src) 格式嵌入回复。",
+            "description": "【课程知识库检索】用自然语言搜索课程包章节，返回讲稿、路线、讲解重点、题目、图片URL。适合游览路线推荐、游客兴趣匹配、景区讲解脚本、课程章节内容等讲解型问题；景点编号、结构化参数、表格字段等事实细节应优先使用 RAG 检索工具。如果章节包含图片，images[].src 为可直接访问的 HTTP 地址，请用 ![描述](src) 格式嵌入回复。",
             "inputSchema": {
                 "type": "object",
                 "properties": {

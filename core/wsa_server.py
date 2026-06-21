@@ -3,11 +3,10 @@ from asyncio import AbstractEventLoop
 import websockets
 import asyncio
 import json
-import os
 from abc import abstractmethod
 from websockets.legacy.server import Serve
 
-from utils import util, config_util
+from utils import util
 from scheduler.thread_manager import MyThread
 
 WS_POLICY_VIOLATION = 1008
@@ -16,19 +15,9 @@ DEFAULT_WS_USERNAME = "User"
 
 
 def _websocket_auth_enabled():
-    auth_config = {}
-    if isinstance(config_util.config, dict):
-        auth_config = config_util.config.get('auth', {}) or {}
-    elif os.path.exists('config.json'):
-        try:
-            with open('config.json', 'r', encoding='utf-8') as file:
-                auth_config = (json.load(file).get('auth') or {})
-        except Exception:
-            auth_config = {}
-    value = auth_config.get('enabled', False)
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+    from core import auth_service
+
+    return auth_service.auth_enabled()
 
 class MyServer:
     def __init__(self, host='0.0.0.0', port=10000):

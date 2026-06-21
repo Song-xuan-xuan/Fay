@@ -14,6 +14,7 @@ from utils import config_util, util
 JWT_ALGORITHM = 'HS256'
 SECRET_FILE = os.path.join('memory', '.jwt_secret')
 DEFAULT_EXPIRATION_HOURS = 168
+DEFAULT_AUTH_ENABLED = True
 
 
 def _read_config_file():
@@ -30,11 +31,20 @@ def get_auth_config():
     return (_read_config_file().get('auth') or {})
 
 
-def auth_enabled():
-    value = get_auth_config().get('enabled', False)
+def _config_bool(value, default=False):
+    if value is None:
+        return default
     if isinstance(value, bool):
         return value
-    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+    raw_value = str(value).strip()
+    if not raw_value:
+        return default
+    return raw_value.lower() in ('1', 'true', 'yes', 'on')
+
+
+def auth_enabled():
+    value = get_auth_config().get('enabled', DEFAULT_AUTH_ENABLED)
+    return _config_bool(value, DEFAULT_AUTH_ENABLED)
 
 
 def get_jwt_secret():

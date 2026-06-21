@@ -31,6 +31,7 @@ function displayName(user: UserRecord | null): string {
     :title="`编辑用户信息 - ${displayName(user)}`"
     width="600px"
     :close-on-click-modal="false"
+    append-to-body
     @update:model-value="emit('update:visible', $event)"
   >
     <div v-loading="loading" class="user-info-form">

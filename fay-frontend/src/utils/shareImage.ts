@@ -1,3 +1,5 @@
+import { HTML2CANVAS_SCRIPT_SRC } from './assets';
+
 type Html2Canvas = (element: HTMLElement, options: Html2CanvasOptions) => Promise<HTMLCanvasElement>;
 
 interface Html2CanvasOptions {
@@ -12,7 +14,6 @@ declare global {
   }
 }
 
-const HTML2CANVAS_SRC = '/static/js/html2canvas.min.js';
 const IMAGE_MIME_TYPE = 'image/png';
 
 export const DEFAULT_HTML2CANVAS_OPTIONS: Html2CanvasOptions = {
@@ -32,7 +33,7 @@ export async function loadHtml2Canvas(): Promise<Html2Canvas> {
 
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = HTML2CANVAS_SRC;
+    script.src = HTML2CANVAS_SCRIPT_SRC;
     script.async = true;
     script.onload = () => {
       if (isHtml2Canvas(window.html2canvas)) {

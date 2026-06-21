@@ -88,6 +88,23 @@
   margin: 16px 0;
 }
 
+.insight-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.insight-highlights span {
+  max-width: 100%;
+  border-radius: 999px;
+  background: rgba(0, 122, 255, 0.1);
+  padding: 5px 10px;
+  color: var(--color-accent);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .insight-text {
   min-height: 160px;
   border: none;
@@ -98,4 +115,26 @@
   font-size: 14px;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.insight-action-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.insight-action-list li + li {
+  margin-top: 6px;
+}
+
+.insight-status {
+  margin: 12px 0 0;
+  border-radius: 10px;
+  background: rgba(52, 199, 89, 0.1);
+  padding: 8px 10px;
+  color: var(--color-success);
+  font-size: 13px;
+  line-height: 1.45;
 }

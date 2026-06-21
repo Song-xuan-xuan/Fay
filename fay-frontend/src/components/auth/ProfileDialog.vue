@@ -4,11 +4,12 @@ import { ElMessage } from 'element-plus';
 import { Camera, KeyRound } from '@lucide/vue';
 import ChangePasswordDialog from './ChangePasswordDialog.vue';
 import { useAuthStore } from '../../stores/auth';
+import { DEFAULT_USER_AVATAR_SRC } from '../../utils/assets';
 
 const props = defineProps<{ visible: boolean }>();
 const emit = defineEmits<{ (event: 'update:visible', value: boolean): void }>();
 
-const DEFAULT_USER_AVATAR = '/static/images/User_send.png';
+const DEFAULT_USER_AVATAR = DEFAULT_USER_AVATAR_SRC;
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 
 const authStore = useAuthStore();
@@ -58,6 +59,7 @@ async function handleAvatarChange(event: Event) {
     title="个人中心"
     width="520px"
     class="profile-dialog-shell"
+    append-to-body
     @update:model-value="updateVisible"
   >
     <div class="profile-dialog">

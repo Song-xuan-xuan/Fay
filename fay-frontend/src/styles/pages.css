@@ -264,6 +264,21 @@
   padding: 24px;
 }
 
+.interaction-settings-drawer {
+  min-height: 100%;
+}
+
+.drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 24px 16px;
+}
+
+.compact-settings-form {
+  padding-top: 0;
+}
+
 .form-section {
   border-bottom: 1px solid var(--color-border-light);
   padding: 4px 0 24px;
@@ -297,4 +312,8 @@
   padding: 20px 24px;
   border-top: 1px solid var(--color-border-light);
   background: rgba(255, 59, 48, 0.04);
+}
+
+.compact-danger-zone {
+  margin: 0 -24px -24px;
 }

@@ -1,7 +1,7 @@
 from flask import Response, jsonify, request
 
 from core import auth_service
-from core.dashboard_service import DashboardService
+from core.dashboard_service import DASHBOARD_ATTRACTIONS, DEFAULT_DASHBOARD_ATTRACTION, DashboardService
 from core.visitor_report_service import VisitorReportService
 
 
@@ -18,6 +18,72 @@ def _visitor_service():
     return VisitorReportService()
 
 
+def _as_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ('1', 'true', 'yes', 'y', 'on')
+    return bool(value)
+
+
+def _dashboard_speak_username(payload):
+    current = auth_service.current_user() or {}
+    requested = str(payload.get('username') or payload.get('user') or '').strip()
+    if not current:
+        return requested or 'User'
+    if current.get('role') == 'admin':
+        return requested or current.get('username') or 'User'
+    return current.get('username') or requested or 'User'
+
+
+def _send_dashboard_speech(text, username):
+    if not text or not str(text).strip():
+        return False, '解读内容为空'
+    try:
+        import uuid
+        import fay_booter
+        from core import stream_manager
+        from core.interact import Interact
+
+        fay = getattr(fay_booter, 'feiFei', None)
+        if fay is None:
+            return False, 'Fay 运行实例未初始化'
+        conversation_id = 'dashboard_' + str(uuid.uuid4())
+        stream_manager.new_instance().set_current_conversation(username or 'User', conversation_id, session_type='dashboard_explain')
+        stream_manager.new_instance().set_stop_generation(username or 'User', stop=False)
+        fay.say(Interact('dashboard_explain', 2, {
+            'user': username or 'User',
+            'msg': '',
+            'conversation_id': conversation_id,
+            'isend': True,
+            'isfirst': True,
+            'no_record': True,
+            'no_panel': True,
+        }), str(text))
+        return True, ''
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _dashboard_attraction(value):
+    name = str(value or '').strip()
+    if name in DASHBOARD_ATTRACTIONS:
+        return name
+    return DEFAULT_DASHBOARD_ATTRACTION
+
+
+def _dashboard_tourism_filters():
+    return {
+        'start_date': request.args.get('start_date'),
+        'end_date': request.args.get('end_date'),
+        'attraction_type': request.args.get('attraction_type'),
+        'attraction_name': _dashboard_attraction(request.args.get('attraction_name')),
+        'satisfaction_min': request.args.get('satisfaction_min'),
+        'satisfaction_max': request.args.get('satisfaction_max'),
+        'tourist_segment': request.args.get('tourist_segment'),
+    }
+
+
 def register_dashboard_routes(app):
     if app.config.get('FAY_DASHBOARD_ROUTES_REGISTERED'):
         return
@@ -27,7 +93,8 @@ def register_dashboard_routes(app):
     @auth_service.require_auth
     def api_dashboard_overview():
         range_key = request.args.get('range', '7d')
-        return jsonify(_service().get_overview(range_key, is_admin=_current_is_admin()))
+        filters = _dashboard_tourism_filters()
+        return jsonify(_service().get_overview(range_key, is_admin=_current_is_admin(), tourism_filters=filters))
 
     @app.route('/api/dashboard/service-trends', methods=['GET'])
     @auth_service.require_auth
@@ -44,16 +111,7 @@ def register_dashboard_routes(app):
     @app.route('/api/dashboard/tourism', methods=['GET'])
     @auth_service.require_auth
     def api_dashboard_tourism():
-        filters = {
-            'start_date': request.args.get('start_date'),
-            'end_date': request.args.get('end_date'),
-            'attraction_type': request.args.get('attraction_type'),
-            'attraction_name': request.args.get('attraction_name'),
-            'satisfaction_min': request.args.get('satisfaction_min'),
-            'satisfaction_max': request.args.get('satisfaction_max'),
-            'tourist_segment': request.args.get('tourist_segment'),
-        }
-        return jsonify(_service().get_tourism(filters))
+        return jsonify(_service().get_tourism(_dashboard_tourism_filters()))
 
     @app.route('/api/dashboard/users', methods=['GET'])
     @auth_service.require_auth
@@ -69,7 +127,19 @@ def register_dashboard_routes(app):
     @app.route('/api/dashboard/explain', methods=['POST'])
     @auth_service.require_auth
     def api_dashboard_explain():
-        return jsonify(_service().explain(request.get_json(silent=True) or {}))
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            data = {}
+        result = _service().explain(data)
+        result['spoken'] = False
+        if _as_bool(data.get('speak')):
+            username = _dashboard_speak_username(data)
+            spoken, error = _send_dashboard_speech(result.get('text'), username)
+            result['spoken'] = spoken
+            result['speaker_username'] = username
+            if error:
+                result['speak_error'] = error
+        return jsonify(result)
 
     @app.route('/api/dashboard/visitor-report/generate', methods=['POST'])
     @auth_service.require_auth

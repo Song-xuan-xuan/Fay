@@ -15,6 +15,7 @@ import ShareToolbar from '../components/messages/ShareToolbar.vue';
 import { useAudioControlActions } from '../composables/useAudioControlActions';
 import { useChatSessions } from '../composables/useChatSessions';
 import { useMessageSubmit } from '../composables/useMessageSubmit';
+import { useVoiceInput } from '../composables/useVoiceInput';
 import { getImagePathFromClickTarget } from '../utils/messageContent';
 import { loadMarked } from '../utils/markdown';
 import { mergePanelReply } from '../utils/messageStream';
@@ -50,6 +51,7 @@ const selectedUserAvatar = computed(() => {
 });
 const selectedSessionId = computed<number | null>(() => appStore.selectedSession?.id ?? null);
 const canSend = computed(() => selectedSessionId.value !== null && (newMessage.value.trim().length > 0 || pendingImages.value.length > 0) && appStore.liveState === 1);
+const canVoiceInput = computed(() => selectedSessionId.value !== null && appStore.liveState === 1);
 const canControlService = computed(() => authStore.isAdmin);
 const shareSelectedMessages = computed(() => getShareSelectedMessages(messages.value));
 const audioActions = useAudioControlActions(appStore);
@@ -61,6 +63,13 @@ const { submitMessage } = useMessageSubmit({
   getLiveState: () => appStore.liveState,
   clearComposerImages: () => chatComposer.value?.clearImages(),
   reloadMessages: () => loadMessages(true),
+});
+const voiceInput = useVoiceInput({
+  selectedUsername,
+  selectedSessionId,
+  newMessage,
+  getLiveState: () => appStore.liveState,
+  submitMessage,
 });
 const {
   sessionLoading,
@@ -245,7 +254,11 @@ onMounted(async () => {
         :can-send="canSend"
         :live-state="appStore.liveState" :mic-enabled="appStore.audioConfig.mic" :speaker-enabled="appStore.audioConfig.speaker"
         :show-management-controls="canControlService"
+        :can-voice-input="canVoiceInput"
+        :voice-recording="voiceInput.isRecording.value"
+        :voice-transcribing="voiceInput.isTranscribing.value"
         @submit="submitMessage" @toggle-mic="audioActions.toggleMic"
+        @toggle-voice-input="voiceInput.toggleRecording"
         @toggle-speaker="audioActions.toggleSpeaker" @start-live="audioActions.startLiveFromComposer"
         @images-change="handleImagesChange"
       />
@@ -261,6 +274,6 @@ onMounted(async () => {
       />
     </section>
 
-    <DigitalHumanPanel />
+    <DigitalHumanPanel view-context="message" />
   </section>
 </template>

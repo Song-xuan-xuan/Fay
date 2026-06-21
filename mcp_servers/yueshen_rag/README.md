@@ -1,6 +1,6 @@
 ## YueShen RAG MCP Server
 
-扫描 `新知识库`（或自定义目录）的 pdf/docx，按段落/句子切块写入 Chroma，并提供检索工具。Embedding 配置可通过 MCP 参数或环境变量传入。
+扫描 `library`（或自定义目录）的 pdf/docx/txt，按段落/句子切块写入 Chroma，并提供检索工具。Embedding 默认走 Fay 的 `/v1/embeddings` 透传端点，也可通过环境变量覆盖。
 
 ### 依赖
 ```bash
@@ -9,7 +9,7 @@ pip install -r requirements.txt
 - 若有 `.doc` 请先转换为 `.docx` 再处理；当前依赖仅支持 pdf/docx。
 
 ### 环境变量（可选）
-- `YUESHEN_CORPUS_DIR`：知识库原始文档目录（默认 `新知识库`）
+- `YUESHEN_CORPUS_DIR`：知识库原始文档目录（默认项目根目录下的 `library`）
 - `YUESHEN_PERSIST_DIR`：Chroma 向量库持久化目录（默认 `cache_data/chromadb_yueshen`）
 - `YUESHEN_EMBED_BASE_URL`：Embedding API base url（将拼接 `/embeddings`）
 - `YUESHEN_EMBED_API_KEY`：Embedding API key
@@ -38,6 +38,6 @@ python server.py
 - `yueshen_stats`：查看向量库状态（持久化目录、集合名、向量数等）。
 
 ### 默认路径与切块
-- 语料目录：`悦肾e家知识库202511/新知识库`
+- 语料目录：`library`
 - 持久化目录：`cache_data/chromadb_yueshen`
 - 切块：约 600 字，120 重叠，可按需调整

@@ -41,6 +41,11 @@
   width: 140px;
 }
 
+.attraction-switch {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
 /* 数据来源标签条 */
 .data-source-strip {
   flex-wrap: wrap;

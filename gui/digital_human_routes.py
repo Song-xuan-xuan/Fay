@@ -138,7 +138,7 @@ def register_digital_human_routes(app):
         try:
             _load_runtime_config()
             payload = _json_data()
-            render_base_url = payload.get("render_base_url") or live2d_resource_service.DEFAULT_RENDER_URL
+            render_base_url = payload.get("render_base_url")
             result = live2d_resource_service.import_live2d_resource_models(
                 render_base_url=render_base_url,
             )

@@ -608,6 +608,15 @@ class FeiFei:
                             images=images,
                             session_id=session_id
                         )
+                        resolved_session_id = content_db.new_instance().get_message_session_id(content_id)
+                        if resolved_session_id is not None:
+                            session_id = resolved_session_id
+                            interact.data["session_id"] = session_id
+                            stream_manager.new_instance().set_current_conversation(
+                                username,
+                                interact.data.get("conversation_id"),
+                                session_id=session_id
+                            )
                         if wsa_server.get_web_instance().is_connected(username):
                             wsa_server.get_web_instance().add_cmd({"panelReply": {"type":"member","content":interact.data["msg"], "username":username, "uid":uid, "id":content_id, "timetext": util.ms_to_timetext(create_ms), "images":images, "session_id":session_id}, "Username" : username})
 
@@ -969,7 +978,10 @@ class FeiFei:
                     voice_name = volcano_voice
             except Exception:
                 pass
-        raw = f"{tts_module}|{voice_name}|{style_str}|{text}"
+        tts_options = ""
+        if tts_module == "openai":
+            tts_options = str(getattr(cfg, "openai_tts_speed", "") or "")
+        raw = f"{tts_module}|{voice_name}|{style_str}|{tts_options}|{text}"
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
     def __get_tts_cache(self, key):
@@ -1111,6 +1123,12 @@ class FeiFei:
             wsa_server.get_instance().add_cmd(message)
         return len(sent_messages)
 
+    def __interact_flag(self, interact, key):
+        value = interact.data.get(key, False)
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes", "y", "on")
+        return bool(value)
+
     def say(self, interact, text, type = ""):
 
 
@@ -1128,6 +1146,8 @@ class FeiFei:
 
             username = interact.data.get("user", "User")
             session_id = interact.data.get("session_id")
+            no_record = self.__interact_flag(interact, "no_record")
+            no_panel = self.__interact_flag(interact, "no_panel") or no_record
 
 
             
@@ -1247,8 +1267,9 @@ class FeiFei:
 
                 # 创建第一条数据库记录，获得content_id
 
-
-                if text and text.strip():
+                if no_record:
+                    content_id = None
+                elif text and text.strip():
 
 
                     content_id, _ = content_db.new_instance().add_content('fay', 'speak', text, username, uid, session_id=session_id)
@@ -1296,7 +1317,7 @@ class FeiFei:
                 conv_info = self.user_conv_map.get(conv_map_key, {})
 
 
-                content_id = conv_info.get("content_id", 0)
+                content_id = conv_info.get("content_id", None if no_record else 0)
 
 
 
@@ -1305,7 +1326,7 @@ class FeiFei:
                 # 如果 conv_map_key 不存在，尝试使用 username 作为备用查找
 
 
-                if not conv_info and text and text.strip():
+                if (not no_record) and (not conv_info) and text and text.strip():
 
 
                     # 查找所有匹配用户名的会话
@@ -1352,7 +1373,7 @@ class FeiFei:
                 # 如果有新内容，更新数据库
 
 
-                if content_id > 0 and text and text.strip():
+                if (not no_record) and content_id and content_id > 0 and text and text.strip():
 
 
                     # 获取当前已有内容
@@ -1375,7 +1396,7 @@ class FeiFei:
                             self._last_update_timetext = util.ms_to_timetext(update_ms)
 
 
-                elif content_id == 0 and text and text.strip():
+                elif (not no_record) and content_id == 0 and text and text.strip():
 
 
                     # content_id 为 0 表示可能会话 key 不匹配，记录警告
@@ -1439,13 +1460,19 @@ class FeiFei:
                 if is_end or not stream_manager.new_instance().should_stop_generation(user_for_stop, conversation_id=conv_id_for_stop):
 
 
-                    self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end, session_id=session_id)
+                    if no_panel:
+                        self.__send_digital_human_message(text, interact.data.get('user'), is_first, is_end)
+                    else:
+                        self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end, session_id=session_id)
 
 
             except Exception:
 
 
-                self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end, session_id=session_id)
+                if no_panel:
+                    self.__send_digital_human_message(text, interact.data.get('user'), is_first, is_end)
+                else:
+                    self.__process_text_output(text, interact.data.get('user'), uid, content_id, type, is_first, is_end, session_id=session_id)
 
 
             

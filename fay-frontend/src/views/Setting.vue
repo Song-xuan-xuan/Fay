@@ -4,6 +4,8 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Play, Save, Square, Trash2, WandSparkles } from '@lucide/vue';
 import { clearMemory, getData, startGenagents, submitConfig } from '../api/setting';
 import type { FayConfig } from '../types';
+import { BRAND_NAME, BRAND_SERVICE_NAME } from '../config/brand';
+import { normalizeVoiceOptions } from '../config/openaiTtsVoices';
 import { useAppStore } from '../stores/app';
 
 const appStore = useAppStore();
@@ -117,10 +119,7 @@ async function loadConfig() {
   try {
     const data = await getData();
     hydrate(data.config);
-    appStore.voiceList = (data.voice_list || []).map((voice) => ({
-      value: voice.value || voice.id || '',
-      label: voice.label || voice.name || '',
-    }));
+    appStore.voiceList = normalizeVoiceOptions(data.voice_list || []);
   } finally {
     loading.value = false;
   }
@@ -140,7 +139,7 @@ async function toggleLive() {
 }
 
 async function handleClearMemory() {
-  await ElMessageBox.confirm('清除记忆会删除 Fay 的对话记忆，需重启后完全生效。确认继续？', '清除记忆', { type: 'warning' });
+  await ElMessageBox.confirm(`清除记忆会删除 ${BRAND_NAME} 的对话记忆，需重启后完全生效。确认继续？`, '清除记忆', { type: 'warning' });
   const result = await clearMemory();
   if (result.success) {
     ElMessage.success(result.message);
@@ -151,7 +150,7 @@ async function handleClearMemory() {
 
 async function clonePersonality() {
   if (appStore.liveState !== 1) {
-    ElMessage.warning('请先开启 Fay 服务');
+    ElMessage.warning(`请先开启 ${BRAND_SERVICE_NAME}`);
     return;
   }
   const { value } = await ElMessageBox.prompt('请输入克隆要求', '克隆人格', {
@@ -180,7 +179,7 @@ onMounted(loadConfig);
     <div class="panel-header">
       <div>
         <h2>人设配置</h2>
-        <p>调整 Fay 的基础人格、语音、唤醒和记忆策略。</p>
+        <p>调整 {{ BRAND_NAME }} 的基础人格、语音、唤醒和记忆策略。</p>
       </div>
       <div class="header-actions">
         <el-button :icon="Save" type="primary" :disabled="!appStore.configEditable" @click="saveConfig">保存配置</el-button>

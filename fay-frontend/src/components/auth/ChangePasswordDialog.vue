@@ -46,6 +46,7 @@ async function submitPassword() {
     :show-close="!force"
     :close-on-click-modal="!force"
     :close-on-press-escape="!force"
+    append-to-body
     @update:model-value="closeDialog"
   >
     <el-form label-position="top">

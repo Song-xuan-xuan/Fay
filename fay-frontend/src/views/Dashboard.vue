@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Activity, BarChart3, Database, PanelRightClose, PanelRightOpen, RefreshCw, Sparkles, TrendingUp } from '@lucide/vue';
 import {
   explainDashboard,
+  type DashboardExplainScope,
   getDashboardHotTopics,
   getDashboardOverview,
   getDashboardServiceTrends,
@@ -16,25 +17,35 @@ import {
   type DashboardTrendItem,
   type DashboardUsers,
   type HotTopicItem,
+  type TourismFilters,
 } from '../api/dashboard';
 import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
 import VisitorReportPanel from '../components/dashboard/VisitorReportPanel.vue';
+import { useAppStore } from '../stores/app';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
+const appStore = useAppStore();
+const dashboardAttractions = ['灵山胜境', '禅意小镇·拈花湾'];
 const range = ref<DashboardRange>('7d');
+const selectedAttraction = ref(dashboardAttractions[0]);
 const activeTab = ref('overview');
 const loading = ref(false);
 const reimporting = ref(false);
-const explaining = ref(false);
+const explainingScope = ref<DashboardExplainScope | ''>('');
 const rightCollapsed = ref(false);
 const explanation = ref('点击“解读大盘”或“解读景区”，生成当前看板的文本解读。');
+const explanationTitle = ref('看板智能解读');
+const explanationHighlights = ref<string[]>([]);
+const explanationActions = ref<string[]>([]);
+const explanationSpoken = ref(false);
+const explanationSpeaker = ref('');
 const overview = ref<DashboardOverview | null>(null);
 const trends = ref<DashboardTrendItem[]>([]);
 const topics = ref<HotTopicItem[]>([]);
 const tourism = ref<DashboardTourism | null>(null);
 const users = ref<DashboardUsers | null>(null);
-const filters = reactive({ start_date: '', end_date: '', attraction_type: '', attraction_name: '', satisfaction_min: '', satisfaction_max: '', tourist_segment: '' });
+const filters = reactive({ start_date: '', end_date: '', attraction_type: '', satisfaction_min: '', satisfaction_max: '', tourist_segment: '' });
 const satisfactionScores = ['1', '2', '3', '4', '5'];
 const touristSegments = ['18岁以下', '18-29岁', '30-44岁', '45-59岁', '60岁以上'];
 
@@ -50,16 +61,26 @@ const maxRegistrationTrend = computed(() => Math.max(1, ...(users.value?.registr
 const maxActiveTrend = computed(() => Math.max(1, ...(users.value?.active_trend || []).map((item) => item.count)));
 const trendLinePoints = computed(() => makePolyline(trends.value.map((item) => item.services), 360, 110));
 const satisfactionPoints = computed(() => makePolyline((tourism.value?.satisfaction_trend || []).map((item) => item.avg_satisfaction), 240, 80));
-const sourceRecordCount = computed(() => tourism.value?.source.record_count || tourism.value?.source.row_count || 0);
+const sourceRecordCount = computed(() => tourism.value?.source.record_count ?? tourism.value?.source.row_count ?? 0);
+const explaining = computed(() => Boolean(explainingScope.value));
+const speakUsername = computed(() => appStore.selectedUser?.[1] || authStore.user?.username || 'User');
+
+function currentTourismFilters(): TourismFilters {
+  return {
+    ...filters,
+    attraction_name: selectedAttraction.value,
+  };
+}
 
 async function loadDashboard() {
   loading.value = true;
   try {
+    const currentFilters = currentTourismFilters();
     const [overviewData, trendData, topicData, tourismData, userData] = await Promise.all([
-      getDashboardOverview(range.value),
+      getDashboardOverview(range.value, currentFilters),
       getDashboardServiceTrends(range.value),
       getDashboardHotTopics(range.value),
-      getDashboardTourism(filters),
+      getDashboardTourism(currentFilters),
       getDashboardUsers(),
     ]);
     overview.value = overviewData;
@@ -76,13 +97,23 @@ async function loadDashboard() {
 
 async function loadTourism() {
   try {
-    tourism.value = await getDashboardTourism(filters);
+    const currentFilters = currentTourismFilters();
+    const [overviewData, tourismData] = await Promise.all([
+      getDashboardOverview(range.value, currentFilters),
+      getDashboardTourism(currentFilters),
+    ]);
+    overview.value = overviewData;
+    tourism.value = tourismData;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '加载旅游分析失败');
   }
 }
 
 async function handleRangeChange() {
+  await loadDashboard();
+}
+
+async function handleAttractionChange() {
   await loadDashboard();
 }
 
@@ -104,16 +135,36 @@ async function handleReimport() {
   }
 }
 
-async function runExplain(scope: string) {
-  explaining.value = true;
+async function runExplain(scope: DashboardExplainScope) {
+  explainingScope.value = scope;
   try {
-    const result = await explainDashboard({ scope, range: range.value, overview: overview.value, topics: topics.value.slice(0, 5), tourism: tourism.value?.source });
+    const result = await explainDashboard({
+      scope,
+      range: range.value,
+      speak: true,
+      username: speakUsername.value,
+      attraction_name: selectedAttraction.value,
+      filters: currentTourismFilters(),
+      overview: overview.value,
+      topics: topics.value.slice(0, 5),
+      tourism: tourism.value,
+    });
+    explanationTitle.value = result.title || (scope === 'tourism' ? '景区数据解读' : '大盘运营解读');
     explanation.value = result.text || '暂无解读结果';
+    explanationHighlights.value = result.highlights || [];
+    explanationActions.value = result.actions || [];
+    explanationSpoken.value = Boolean(result.spoken);
+    explanationSpeaker.value = result.speaker_username || speakUsername.value;
     rightCollapsed.value = false;
+    if (result.spoken) {
+      ElMessage.success(`已发送给数字人 ${explanationSpeaker.value} 播报`);
+    } else if (result.speak_error) {
+      ElMessage.warning(`解读已生成，数字人播报未触发：${result.speak_error}`);
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '生成解读失败');
   } finally {
-    explaining.value = false;
+    explainingScope.value = '';
   }
 }
 
@@ -141,10 +192,13 @@ onMounted(loadDashboard);
     <div class="dashboard-main">
       <div class="dashboard-title-row">
         <div>
-          <h2>数字人服务运营大屏</h2>
-          <p>汇总数字人服务、用户增长、热门问答与景区旅游行为数据</p>
+          <h2>数字人服务运营大屏 · {{ selectedAttraction }}</h2>
+          <p>汇总数字人服务、用户增长、热门问答与当前景区旅游行为数据</p>
         </div>
         <div class="dashboard-actions">
+          <el-radio-group v-model="selectedAttraction" class="attraction-switch" @change="handleAttractionChange">
+            <el-radio-button v-for="name in dashboardAttractions" :key="name" :label="name" />
+          </el-radio-group>
           <el-select v-model="range" class="range-select" @change="handleRangeChange">
             <el-option label="最近 7 天" value="7d" />
             <el-option label="最近 30 天" value="30d" />
@@ -160,6 +214,7 @@ onMounted(loadDashboard);
         <span>服务运营数据：系统运行数据</span>
         <span>用户数据：用户管理模块</span>
         <span>旅游行为数据：Excel 导入 SQLite</span>
+        <span>当前景区：{{ selectedAttraction }}</span>
         <el-tag v-if="overview?.is_demo" type="warning">演示数据</el-tag>
       </div>
 
@@ -205,7 +260,7 @@ onMounted(loadDashboard);
         <el-tab-pane label="运营概览" name="overview">
           <div class="split-grid">
             <section class="chart-panel"><h3>服务趋势明细</h3><el-table :data="trends" height="320"><el-table-column prop="date" label="日期" /><el-table-column prop="services" label="服务人次" /><el-table-column prop="questions" label="问答次数" /><el-table-column prop="active_users" label="活跃用户" /></el-table></section>
-            <section class="chart-panel"><h3>数据来源</h3><p class="source-text">旅游记录 {{ sourceRecordCount }} 条，时间范围 {{ tourism?.source.date_range?.start || '-' }} 至 {{ tourism?.source.date_range?.end || '-' }}，最后导入 {{ formatTime(tourism?.source.imported_at) }}。</p></section>
+            <section class="chart-panel"><h3>数据来源</h3><p class="source-text">{{ selectedAttraction }} 旅游记录 {{ sourceRecordCount }} 条，时间范围 {{ tourism?.source.date_range?.start || '-' }} 至 {{ tourism?.source.date_range?.end || '-' }}，最后导入 {{ formatTime(tourism?.source.imported_at) }}。</p></section>
           </div>
         </el-tab-pane>
         <el-tab-pane label="用户活跃" name="users">
@@ -219,7 +274,7 @@ onMounted(loadDashboard);
           <VisitorReportPanel />
         </el-tab-pane>
         <el-tab-pane label="景区分析" name="tourism">
-          <section class="filter-row"><el-date-picker v-model="filters.start_date" value-format="YYYY-MM-DD" placeholder="开始日期" /><el-date-picker v-model="filters.end_date" value-format="YYYY-MM-DD" placeholder="结束日期" /><el-input v-model="filters.attraction_type" placeholder="景区类型" /><el-input v-model="filters.attraction_name" placeholder="景点名称" /><el-select v-model="filters.satisfaction_min" clearable placeholder="最低满意度"><el-option v-for="score in satisfactionScores" :key="`min-${score}`" :label="score" :value="score" /></el-select><el-select v-model="filters.satisfaction_max" clearable placeholder="最高满意度"><el-option v-for="score in satisfactionScores" :key="`max-${score}`" :label="score" :value="score" /></el-select><el-select v-model="filters.tourist_segment" clearable placeholder="游客分群"><el-option v-for="segment in touristSegments" :key="segment" :label="segment" :value="segment" /></el-select><el-button type="primary" @click="loadTourism">筛选</el-button></section>
+          <section class="filter-row"><el-date-picker v-model="filters.start_date" value-format="YYYY-MM-DD" placeholder="开始日期" /><el-date-picker v-model="filters.end_date" value-format="YYYY-MM-DD" placeholder="结束日期" /><el-input v-model="filters.attraction_type" placeholder="景区类型" /><el-select v-model="filters.satisfaction_min" clearable placeholder="最低满意度"><el-option v-for="score in satisfactionScores" :key="`min-${score}`" :label="score" :value="score" /></el-select><el-select v-model="filters.satisfaction_max" clearable placeholder="最高满意度"><el-option v-for="score in satisfactionScores" :key="`max-${score}`" :label="score" :value="score" /></el-select><el-select v-model="filters.tourist_segment" clearable placeholder="游客分群"><el-option v-for="segment in touristSegments" :key="segment" :label="segment" :value="segment" /></el-select><el-button type="primary" @click="loadTourism">筛选</el-button></section>
           <div class="split-grid"><section class="chart-panel"><h3>景区类型访问量</h3><div class="rank-list"><div v-for="item in tourism?.type_metrics || []" :key="item.name" class="rank-row"><span>{{ item.name }}</span><b>{{ item.visits }}</b><i :style="{ width: percent(item.visits, maxTypeVisits) }" /></div></div></section><section class="chart-panel"><h3>景点 TOP10</h3><el-table :data="tourism?.attraction_ranking || []" height="360"><el-table-column prop="attraction_name" label="景点" min-width="160" /><el-table-column prop="attraction_type" label="类型" width="120" /><el-table-column prop="visits" label="访问" width="90" /><el-table-column prop="avg_satisfaction" label="满意度" width="100" /></el-table></section></div>
           <div class="split-grid tourism-trend-grid"><section class="chart-panel"><h3>游客访问趋势</h3><div class="rank-list"><div v-for="item in tourism?.visit_trend || []" :key="item.month" class="rank-row"><span>{{ item.month }} · {{ item.tourists }} 人</span><b>{{ item.visits }}</b><i :style="{ width: percent(item.visits, maxVisitTrend) }" /></div></div></section><section class="chart-panel"><h3>满意度分布</h3><div class="rank-list"><div v-for="item in tourism?.satisfaction_distribution || []" :key="item.name" class="rank-row"><span>{{ item.name }}</span><b>{{ item.count }}</b><i :style="{ width: percent(item.count, maxSatisfactionDistribution) }" /></div></div></section></div>
         </el-tab-pane>
@@ -240,10 +295,20 @@ onMounted(loadDashboard);
         </button>
         <template v-if="!rightCollapsed">
           <div class="insight-avatar"><Sparkles :size="22" /></div>
-          <h3>看板智能解读</h3>
+          <h3>{{ explanationTitle }}</h3>
           <p class="panel-note">右侧数字人负责呈现，文本解读可辅助复盘看板数据。</p>
-          <div class="insight-actions"><el-button size="small" :loading="explaining" @click="runExplain('overview')">解读大盘</el-button><el-button size="small" @click="runExplain('tourism')">解读景区</el-button></div>
+          <div class="insight-actions">
+            <el-button size="small" :loading="explainingScope === 'overview'" :disabled="explaining && explainingScope !== 'overview'" @click="runExplain('overview')">解读大盘</el-button>
+            <el-button size="small" :loading="explainingScope === 'tourism'" :disabled="explaining && explainingScope !== 'tourism'" @click="runExplain('tourism')">解读景区</el-button>
+          </div>
+          <div v-if="explanationHighlights.length" class="insight-highlights">
+            <span v-for="item in explanationHighlights" :key="item">{{ item }}</span>
+          </div>
           <div class="insight-text">{{ explanation }}</div>
+          <ul v-if="explanationActions.length" class="insight-action-list">
+            <li v-for="item in explanationActions" :key="item">{{ item }}</li>
+          </ul>
+          <p v-if="explanationSpoken" class="insight-status">已发送给 {{ explanationSpeaker }} 的数字人播报</p>
         </template>
       </section>
     </aside>

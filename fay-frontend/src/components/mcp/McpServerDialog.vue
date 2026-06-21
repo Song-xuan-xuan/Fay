@@ -130,7 +130,14 @@ watch(() => props.server, () => {
 </script>
 
 <template>
-  <el-dialog :model-value="visible" :title="dialogTitle" width="620px" destroy-on-close @update:model-value="emit('update:visible', $event)">
+  <el-dialog
+    :model-value="visible"
+    :title="dialogTitle"
+    width="620px"
+    destroy-on-close
+    append-to-body
+    @update:model-value="emit('update:visible', $event)"
+  >
     <el-form label-position="top" class="mcp-dialog-form">
       <el-form-item label="名称">
         <el-input v-model="form.name" placeholder="例如：yueshen rag" />

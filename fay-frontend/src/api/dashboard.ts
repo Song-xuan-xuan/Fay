@@ -2,6 +2,7 @@ import request from './request';
 
 export type DashboardRange = '7d' | '30d' | 'week' | 'month';
 export type VisitorReportRange = DashboardRange | 'today';
+export type DashboardExplainScope = 'overview' | 'tourism';
 
 export interface DashboardKpi {
   title: string;
@@ -39,6 +40,8 @@ export interface HotTopicItem {
 export interface DashboardTourismSource {
   row_count?: number;
   record_count?: number;
+  total_record_count?: number;
+  selected_attraction?: string;
   imported_at?: number;
   import_status?: string;
   error?: string;
@@ -154,8 +157,31 @@ export interface VisitorReportGeneratePayload {
   end_ms?: number;
 }
 
-export function getDashboardOverview(range: DashboardRange) {
-  return request.get('/api/dashboard/overview', { params: { range } }) as Promise<DashboardOverview>;
+export interface DashboardExplainPayload {
+  scope: DashboardExplainScope;
+  range: DashboardRange;
+  attraction_name?: string;
+  filters?: TourismFilters;
+  speak?: boolean;
+  username?: string;
+  overview?: DashboardOverview | null;
+  topics?: HotTopicItem[];
+  tourism?: DashboardTourism | null;
+}
+
+export interface DashboardExplainResult {
+  scope: DashboardExplainScope;
+  title: string;
+  text: string;
+  highlights: string[];
+  actions: string[];
+  spoken: boolean;
+  speaker_username?: string;
+  speak_error?: string;
+}
+
+export function getDashboardOverview(range: DashboardRange, filters: TourismFilters = {}) {
+  return request.get('/api/dashboard/overview', { params: { range, ...filters } }) as Promise<DashboardOverview>;
 }
 
 export function getDashboardServiceTrends(range: DashboardRange) {
@@ -178,8 +204,8 @@ export function reimportDashboardTourism() {
   return request.post('/api/dashboard/tourism/reimport', {}, { timeout: 300000 }) as Promise<Record<string, unknown>>;
 }
 
-export function explainDashboard(payload: Record<string, unknown>) {
-  return request.post('/api/dashboard/explain', payload, { timeout: 60000 }) as Promise<{ text: string }>;
+export function explainDashboard(payload: DashboardExplainPayload) {
+  return request.post('/api/dashboard/explain', payload, { timeout: 60000 }) as Promise<DashboardExplainResult>;
 }
 
 export function generateVisitorReport(payload: VisitorReportGeneratePayload) {

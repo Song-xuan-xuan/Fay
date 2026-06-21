@@ -9,7 +9,8 @@ from utils import config_util
 VALID_TYPES = {"live2d", "iframe", "image"}
 DEFAULT_HUMAN_ID = "fay_default"
 DEFAULT_RENDER_URL = "http://127.0.0.1:5174"
-DEFAULT_COVER_URL = "/static/images/Normal.gif"
+DEFAULT_COVER_URL = "/frontend-static/images/digital-human-default.gif"
+LEGACY_DEFAULT_COVER_URLS = {"/static/images/Normal.gif"}
 PERSONA_KEYS = (
     "gender",
     "age",
@@ -33,6 +34,13 @@ def _as_text(value):
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _normalize_cover_url(value):
+    cover_url = _as_text(value)
+    if not cover_url or cover_url in LEGACY_DEFAULT_COVER_URLS:
+        return DEFAULT_COVER_URL
+    return cover_url
 
 
 def _runtime_config(config=None):
@@ -98,7 +106,7 @@ def _normalize_human(payload, existing=None):
         "id": _as_text(current.get("id")) or _make_human_id(source),
         "name": _as_text(source.get("name", current.get("name"))) or "未命名数字人",
         "type": human_type,
-        "cover_url": _as_text(source.get("cover_url", current.get("cover_url"))),
+        "cover_url": _normalize_cover_url(source.get("cover_url", current.get("cover_url"))),
         "render_url": _as_text(source.get("render_url", current.get("render_url"))),
         "voice": _as_text(source.get("voice", current.get("voice"))),
         "tags": _normalize_tags(source.get("tags", current.get("tags", []))),
@@ -107,8 +115,9 @@ def _normalize_human(payload, existing=None):
         "created_at": _as_text(current.get("created_at")) or now,
         "updated_at": now,
     }
-    if not human["cover_url"]:
-        human["cover_url"] = DEFAULT_COVER_URL
+    model_name = _as_text(source.get("model_name", current.get("model_name")))
+    if model_name:
+        human["model_name"] = model_name
     if human["type"] in ("live2d", "iframe") and not human["render_url"]:
         human["render_url"] = DEFAULT_RENDER_URL
     return human

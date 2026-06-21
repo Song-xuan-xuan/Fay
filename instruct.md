@@ -45,8 +45,8 @@
 
 - **全链路流式**：LLM 逐句生成 → 逐句 TTS → 逐句推送播放，支持随时打断。
 - **多用户并发**：以 `username` 和 `(username, conversation_id)` 为键隔离所有会话状态。
-- **二开应用层**（相对原版 Fay 新增）：JWT 认证 + 双角色权限、审计日志、数据看板（运营/用户/旅游）、数字人库管理（Live2D 模型发现与导入）、Vue3 管理前端、本地 embedding 知识库 RAG。
-- **MCP 工具生态**：可连接外部 MCP 服务器（stdio/SSE），也将 Fay 内部能力（记忆等）暴露为 MCP 工具。
+- **二开应用层**（相对原版 Fay 新增）：JWT 认证 + 双角色权限、审计日志、数据看板（运营/用户/旅游）、数字人库管理（Live2D 模型发现与导入）、Vue3 管理前端、API embedding 知识库 RAG。
+- **MCP 工具生态**：可连接外部 MCP 服务器（stdio/SSE），也将 Fay 内部能力（记忆等）暴露为 MCP 工具；当前景区项目仅注册 `RAG` 与 `课程知识库` 两个知识增强 MCP。
 - **双 UI 并存**：`fay-frontend/`（Vue3 新管理台，主力）与 `gui/templates/`（legacy jQuery 页面，回退路径）。
 
 ---
@@ -162,10 +162,12 @@ D:\Fay\Fay\
 │   ├── kb_routes.py            # 知识库 HTTP 路由
 │   └── data/                   # mcp_servers.json / 工具状态持久化
 │
-├── mcp_servers/            # 自带外部 MCP 服务器实现
-│   ├── schedule_manager/       # 日程管理（含独立 Web 管理 5011）
-│   ├── window_capture/         # 窗口截图
-│   └── yueshen_rag/            # 知识库 RAG（ChromaDB）
+├── mcp_servers/            # 自带外部 MCP 服务器实现（源码保留不代表已注册启用）
+│   ├── yueshen_rag/            # 当前保留：通用文档 RAG（ChromaDB）
+│   ├── fay_player_knowledge/   # 当前保留：课程/讲解包结构化知识库
+│   ├── logseq/                 # 源码保留但当前已下线；个人 Logseq 图谱读写
+│   ├── schedule_manager/       # 源码保留但当前已下线；恢复后会拉起 5011 管理页
+│   └── window_capture/         # 源码保留但当前已下线；窗口截图能力
 │
 ├── asr/                    # 语音识别（funasr.py / ali_nls.py / funasr 目录）
 ├── tts/                    # 语音合成（azure/ali/volcano/gptsovits/openai/edge）
@@ -203,8 +205,8 @@ D:\Fay\Fay\
 | 端口 | 协议 | 服务 | 定义位置 | 鉴权 |
 |---|---|---|---|---|
 | **5000** | HTTP | Flask 主管理 API + Vue SPA 托管 + legacy 页面 | `gui/flask_server.py:2379`（werkzeug，0.0.0.0） | JWT（软门禁，见 6.3） |
-| **5010** | HTTP | MCP 管理服务（服务器 CRUD/工具/资源/知识库路由） | `faymcp/mcp_service.py:1728`（gevent，默认 127.0.0.1，`FAY_MCP_HOST` 可改） | auth.enabled 时需 admin Bearer |
-| **5011** | HTTP | 日程 MCP 的独立 Web 管理（子进程） | `mcp_servers/schedule_manager/web_server.py:385` | 无 |
+| **5010** | HTTP | MCP 管理服务（服务器 CRUD/工具/资源/知识库路由；页面入口统一走 5000 `/mcp` 隐藏路由） | `faymcp/mcp_service.py:1728`（gevent，默认 127.0.0.1，`FAY_MCP_HOST` 可改） | auth.enabled 时需 admin Bearer |
+| **5011** | HTTP | 日程 MCP 的独立 Web 管理（仅恢复注册 schedule_manager 后由子进程拉起；当前景区项目未启用） | `mcp_servers/schedule_manager/web_server.py:385` | 无 |
 | **5173** | HTTP | Vite 前端开发服务器（代理 → 5000） | `fay-frontend/vite.config.ts` | — |
 | **5174** | HTTP | Live2D 渲染服务（外部独立项目，`render_url` 指向） | `core/digital_human_service.py:11` | — |
 | **8765** | HTTP/SSE | 内置 MCP SSE 服务器（⚠️ CLAUDE.md 写 9002 已过时） | `faymcp/mcp_server.py:75-77`，env `FAY_MCP_SSE_HOST/PORT/PATH`，路径 `/sse` | 无 |
@@ -225,7 +227,7 @@ D:\Fay\Fay\
 | 文件 | 格式 | 内容 | 读写方 |
 |---|---|---|---|
 | `system.conf`（模板 `system.conf.bak`） | INI，`[key]` 段 | 密钥类：ASR_mode（funasr/ali/sensevoice）、tts_module、gpt_api_key/base_url/model_engine（小模型）、big_model_engine（大模型）、embedding 配置、代理、start_mode（common/web）、fay_url | `utils/config_util.py` 加载后展开为**模块级全局变量** |
-| `config.json` | JSON | 行为类：attribute（人设）、digital_humans（数字人库，**程序会回写**）、interact（QnA 路径/playSound）、source（录音/唤醒词/自动播报）、memory（isolate_by_user/use_bionic_memory）、auth（认证开关，当前缺省=禁用） | `config_util.config` 字典；`save_config_sections()` 分段回写，`save_config()` 全量回写 |
+| `config.json` | JSON | 行为类：attribute（人设）、digital_humans（数字人库，**程序会回写**）、live2d（Samples 相对路径/渲染服务地址）、interact（QnA 路径/playSound）、source（录音/唤醒词/自动播报）、memory（isolate_by_user/use_bionic_memory）、auth（认证开关，当前缺省=禁用） | `config_util.config` 字典；`save_config_sections()` 分段回写，`save_config()` 全量回写 |
 
 ### 5.2 加载机制与优先级（`config_util.py:292-635`）
 
@@ -242,9 +244,10 @@ D:\Fay\Fay\
 | `FAY_SYSTEM_CONF_JSON` | system.conf 的 JSON 序列化（跨进程传递，**含密钥**） |
 | `FAY_MCP_HOST` | MCP 管理服务绑定地址（默认 127.0.0.1） |
 | `FAY_MCP_SSE_HOST/PORT/PATH` | 内置 MCP SSE 服务器（默认 0.0.0.0:8765/sse） |
-| `FAY_LIVE2D_SAMPLES_ROOT` | Live2D Cubism SDK Samples 目录；未设置时使用仓库内 `library/live2d/Samples` |
-| `EMBEDDING_MODEL_PATH` | 本地 embedding 模型路径（如 `model/bge-large-zh-v1.5`，维度 1024） |
-| `YUESHEN_*` | yueshen_rag MCP 服务器配置（语料目录/持久化目录/embedding 覆盖开关等） |
+| `FAY_LIVE2D_SAMPLES_ROOT` | Live2D Cubism SDK Samples 目录；优先级高于 `config.json live2d.samples_root`；相对路径按项目根目录解析 |
+| `EMBEDDING_API_BASE_URL` / `EMBEDDING_API_KEY` | Embedding API 兜底环境变量；优先使用 `system.conf` 中的 `embedding_base_url` / `embedding_api_key` |
+| `EMBEDDING_MODEL_PATH` | 可选本地 embedding 模型路径；默认 API 模式不需要设置 |
+| `YUESHEN_*` | yueshen_rag MCP 服务器配置（语料目录/持久化目录/embedding 覆盖开关等）；部署时 `YUESHEN_PERSIST_DIR` 应使用项目相对路径，如 `cache_data/chromadb_yueshen_clean` |
 
 > ⚠️ `config_util.load_config()` 必须先于依赖配置的模块导入执行（`main.py:184`）。
 
@@ -417,7 +420,7 @@ load_config → embedding 预热（探维度）→ FeiFei().start() → init_mem
 - **写回策略**：数字人库、激活人设、配置提交和麦克风开关优先走 `save_config_sections()`，只替换指定顶层配置段；文件写入使用临时文件 + `os.replace` 原子替换。
 - 激活时把 name/voice/persona 回写到 `attribute` 配置节点，并经 WS 10003 推送切换命令。
 - id 约定：手工创建 `dh_<uuid12>`、Live2D 导入 `live2d_<slug>`、默认 `fay_default`。
-- Live2D 导入：扫描 `FAY_LIVE2D_SAMPLES_ROOT`；未设置时扫描仓库内 `library/live2d/Samples`，目录下需存在 `Resources/<Model>/<Model>.model3.json`；render_url 指向 Live2D 渲染服务（默认 `http://127.0.0.1:5174?model=<名>`）。
+- Live2D 导入：扫描优先级为 `FAY_LIVE2D_SAMPLES_ROOT` → `config.json live2d.samples_root` → 仓库内 `library/live2d/Samples`，相对路径均按项目根目录解析；目录下需存在 `Resources/<Model>/<Model>.model3.json`；render_url 指向 `config.json live2d.render_base_url`（默认 `http://127.0.0.1:5174?model=<名>`，接口 payload 可临时覆盖）。
 - 封面存 `cache_data/digital_humans/covers/`（≤5MB，魔数校验）。
 - ⚠️ `persist_config` 保存后仍触发全局 `load_config(force_reload=True)`；不同顶层段的并发写入可保留，编辑同一顶层段仍是最后写入者生效。新增写入口优先用 `save_config_sections()`，仅在确需整体替换时使用 `save_config()`。
 
@@ -512,7 +515,8 @@ question() 三种分流（取后台结果 / 后台运行中意图分类 / 正常
 
 **Embedding**（`utils/api_embedding_service.py` 线程安全单例）：
 
-- `embedding_api_base_url` 为 `"local"`（或模型路径存在）→ `LocalEmbeddingBackend`（sentence-transformers 优先，transformers CLS 兜底，`EMBEDDING_DEVICE`/cuda 自动选择）；否则 → `OpenAIEmbeddingBackend`（URL 自动规范化为 `/embeddings`，指数退避）。
+- 默认走 `OpenAIEmbeddingBackend`：`embedding_api_model` 默认 `BAAI/bge-m3`，`embedding_base_url` 为空时复用 `gpt_base_url`，URL 自动规范化为 `/embeddings`，指数退避。
+- 只有显式设置 `embedding_base_url=local` 或模型路径存在时，才会进入 `LocalEmbeddingBackend`（sentence-transformers 优先，transformers CLS 兜底，`EMBEDDING_DEVICE`/cuda 自动选择）。
 - ⚠️ 失败回退 **SHA256 种子确定性模拟向量**——不报错但检索质量静默劣化。
 - 切换模型后维度不一致由 `precheck_embedding_dimensions` 启动时自动重算修复。
 - Flask 5000 暴露 OpenAI 兼容 `/v1/embeddings` 透传端点（yueshen_rag 默认消费）。
@@ -537,26 +541,25 @@ question() 三种分流（取后台结果 / 后台运行中意图分类 / 正常
 
 faymcp 是 MCP（Model Context Protocol）集成层，**四个层面**：
 
-1. **`faymcp/mcp_service.py`** — MCP 管理 Flask 服务（gevent，**独立端口 5010**，⚠️ CLAUDE.md 称"5000 的子路由"已过时）：服务器 CRUD、连接/断开、工具/资源启停、预启动配置、工具调用；`before_request` 做 Bearer+admin 鉴权（auth_enabled 时）；autostart 服务器启动 2 秒后自动连接；**定时断线重连已被注释停用**（`mcp_service.py:1768`）。
+1. **`faymcp/mcp_service.py`** — MCP 管理 Flask 服务（gevent，**独立端口 5010**，⚠️ CLAUDE.md 称"5000 的子路由"已过时）：服务器 CRUD、连接/断开、工具/资源启停、预启动配置、工具调用；`main.py start` 会自动启动该服务；`before_request` 做 Bearer+admin 鉴权（auth_enabled 时）；autostart 服务器启动 2 秒后自动连接；**定时断线重连已被注释停用**（`mcp_service.py:1768`）。旧模板入口 `GET /`、`/Page3`、`/setting` 已停用并返回 JSON 404，MCP 管理统一从 Vue 主控台隐藏路由 `/mcp` 访问。
 2. **`faymcp/mcp_client.py`** — McpClient 兼容 SSE 与 stdio 双协议；每实例一条专属 asyncio 事件循环线程，同步 API 经 `run_coroutine_threadsafe` 包装（超时：init/list 30s，call 90s）；每 60 秒后台刷新工具列表；stdio 子进程 stderr 落盘 `logs/mcp_stdio_*.log`；PyInstaller 打包时改用 `sys.executable --mcp-stdio-runner` 启动；disconnect 用 wmic/taskkill 或 pkill 按命令行子串强杀子进程（有误杀同名进程风险）。
 3. **`faymcp/mcp_server.py`** — 内置 MCP SSE 服务器（Starlette+uvicorn，默认 **0.0.0.0:8765**，路由 `GET /sse` + `POST /messages`，无鉴权）：暴露 `broadcast_message`（POST 回 Fay 5000 的 `/transparent-pass` 实现数字人播报）、7 个 `memory_*` 记忆工具（asyncio.to_thread 进程内直调 `core.memory_service`），并把所有已连接外部服务器的启用工具以 `server_id:tool_name` 命名空间聚合转发。
 4. **`faymcp/runtime_bridge.py`** — LLM 管道的**进程内直调通道**（`nlp_cognitive_stream.py:58` import 为 `mcp_runtime`）：工具列表、预启动工具、资源文本注入（启用资源拼接上限 8000 字符进 system prompt）、call_tool 转发，避免回环 HTTP。
 
-**三个内存注册表**（模块级单例 + RLock，**要求同进程**）：`tool_registry`（工具快照与"启用且可用"聚合缓存，同名工具按 last_checked 新者胜出）、`resource_registry`（资源文本缓存）、`prestart_registry`（预启动配置，params 模板支持 `{{question}}` 占位符）。
+**三个内存注册表**（模块级单例 + RLock，**要求同进程**）：`tool_registry`（工具快照与"启用且可用"聚合缓存，同名工具按 last_checked 新者胜出）、`resource_registry`（资源文本缓存）、`prestart_registry`（预启动配置，params 模板支持 `{{question}}` 占位符）。删除 MCP 服务器时 `remove_deleted_server_state()` 会同步清理工具、资源和预启动注册表，避免旧 server_id 继续影响聚合工具和资源注入。
 
-**持久化**（faymcp/data/，JSON，server_id 内存为 int / JSON 键为 str）：`mcp_servers.json`（服务器配置，status/latency 不持久化、启动一律重置 offline，**想自动恢复连接必须 autostart=true**）、`mcp_tool_states.json`（工具启停，缺省启用）、`mcp_resource_states.json`、`mcp_prestart_tools.json`。
+**持久化**（faymcp/data/，JSON，server_id 内存为 int / JSON 键为 str）：`mcp_servers.json`（服务器配置，status/latency 不持久化、启动一律重置 offline，**想自动恢复连接必须 autostart=true**）、`mcp_tool_states.json`（工具启停，缺省启用）、`mcp_resource_states.json`、`mcp_prestart_tools.json`。删除服务器时会同时移除该 server_id 在工具启停、资源启停和预启动配置中的持久化状态。⚠️ 运行中的 5010 服务持有内存态，手工改 `faymcp/data/*.json` 可能被服务回写；服务运行时优先通过 5010 API 或 `/mcp` 页面修改。
 
 **`faymcp/kb_routes.py`** — 知识库 Blueprint（`/api/kb/*`，挂在 5010）：管理 `library/` 目录 .docx/.pdf（白名单+路径穿越防护），ingest/query/stats 调用在线的 yueshen_rag MCP 服务器工具（`skip_enabled_check=True`）；写接口要求同源或本机。
 
-**自带 stdio MCP 服务器**（mcp_servers/，统一样板：`_runtime_dir/_project_root` 双函数支持 PyInstaller，**日志写 stderr 保持 stdout 干净**）：
+**当前注册的 MCP 服务器**（`faymcp/data/mcp_servers.json`）：
 
-| 目录 | 工具 | 说明 |
+| 名称 | transport / 入口 | 说明 |
 |---|---|---|
-| schedule_manager | add/get/update/delete_schedule、send_message_to_fay | SQLite schedules.db；到点经 5000 `/api/schedule/notify` 通知 Fay；连接时拉起 5011 独立日程网页子进程 |
-| yueshen_rag | ingest_yueshen/query_yueshen/yueshen_stats | 语料 library/，Chroma 存 cache_data/chromadb_yueshen；embedding 默认走 Fay 5000 `/v1` 透传 |
-| window_capture | list_windows/capture_window | Windows 窗口截图（最简参考实现） |
-| logseq | search_text/read_page/create_page 等 9 个 | 需环境变量 LOGSEQ_GRAPH_DIR |
-| fay_player_knowledge | kb_search/kb_get_catalog 等 8 个 + resources | **手写 JSON-RPC stdio 协议**不依赖 mcp 库；内置图片 HTTP 服务 |
+| RAG | stdio，`mcp_servers/yueshen_rag/server.py` | 通用文档 RAG，当前 `autostart=true`；`YUESHEN_AUTO_INGEST=0`；`YUESHEN_PERSIST_DIR=cache_data/chromadb_yueshen_clean`（项目相对路径，便于服务器部署） |
+| 课程知识库 | stdio，`mcp_servers/fay_player_knowledge/fay_player_knowledge_base_mcp_server.py --source ./fay_player_knowledge` | 核心景区知识库入口，**手写 JSON-RPC stdio 协议**不依赖 mcp 库；内置图片 HTTP 服务 |
+
+**源码保留但已从注册配置下线**（见 `docs/mcp-retired.md`）：`logseq`（个人 Logseq 图谱读写，依赖本机 `LOGSEQ_GRAPH_DIR`，不适合作为游客端默认能力）、`tools`（测试/调试示例）、`schedule_manager`（日程提醒不属于当前景区数字人主线）、`window_capture`（桌面截图能力有隐私风险）。这些目录/脚本保留作为参考或未来恢复来源，但不会出现在 MCP 管理页，也不会进入 LLM 可调用工具集合。
 
 **关键数据流**：
 - 连接：`connect_to_real_mcp` → McpClient.connect → list_tools → `_sanitize_tools` → tool_registry（注水持久化 enabled）→ 资源全文缓存进 resource_registry。
@@ -569,7 +572,7 @@ faymcp 是 MCP（Model Context Protocol）集成层，**四个层面**：
 - ⚠️ `llm/execution_manager.py:245` `from faymcp import mcp_runtime` —— 该模块名不存在（实际是 runtime_bridge），ImportError 被吞，执行器 knowledge_sources_hint 恒为空。
 - `POST /api/mcp/servers/<id>/restart` 是假实现（仅改 status 字段）。
 - **工具启停即时生效**（toggle 同时写 JSON 与 registry），⚠️ CLAUDE.md 所述"需重启 MCP 客户端"已过时。
-- stdio 默认 cwd 是**项目根**而非服务器目录，args 相对路径相对项目根解析。
+- stdio 默认 cwd 是**项目根**而非服务器目录，args 相对路径相对项目根解析；若某 server 配置了 `cwd`，它自己的环境变量相对路径可能以该 `cwd` 为基准，部署前需确认。
 - faymcp 无 `__init__.py`（隐式命名空间包），打包时注意收集。
 - mcp_tool_states.json 有历史脏键（元组字符串），现已被 `_sanitize_tools` 过滤。
 
@@ -596,7 +599,7 @@ faymcp 是 MCP（Model Context Protocol）集成层，**四个层面**：
 | DELETE | /api/kb/files/\<filename\> | 删除（+同源校验） |
 | POST | /api/kb/ingest, /api/kb/query | 入库 / 语义检索 |
 | GET | /api/kb/stats | 向量库统计 |
-| GET | /Page3 | 旧版 MCP 管理页（Jinja2） |
+| GET | /, /Page3, /setting | 旧版 MCP 管理页入口已停用，返回 JSON 404 |
 
 ### 6.7 语音子系统（ASR/TTS）
 
@@ -620,13 +623,14 @@ faymcp 是 MCP（Model Context Protocol）集成层，**四个层面**：
 | volcano | `volcano_tts.py` | 24k | 手工套 wav 头；音色优先 volcano_tts_voice_type |
 | gptsovits | `gptsovits.py` | 16k | 地址硬编码 127.0.0.1:9880 |
 | gptsovits_v3 | `gptsovits_v3.py` | 32k | 地址 + **ref_audio_path 本机绝对路径全硬编码，换机必坏** |
-| openai_tts | `openai_tts.py` | 44.1k | 地址硬编码 127.0.0.1:8080 |
+| openai_tts | `openai_tts.py` | 44.1k | 地址硬编码 127.0.0.1:8080；倍速读 `openai_tts_speed` |
 
 **TTS 统一鸭子类型契约**（无公共基类）：每文件一个 `class Speech`，实现 `connect()/close()/to_sample(text, style) -> wav路径或None`；输出统一 `./samples/sample-<毫秒时间戳>.wav`；失败返回 None 并打 `[x] 语音转换失败！` 日志。音色取 `config.json attribute.voice`（volcano 例外）。
 
 **要点/坑**：
 - `style` 参数只对 azure 分支有实际语义，且 `__get_mood_voice` 固定返回 `styleList['calm']`（`fay_core.py:952`）——**情绪音色实际未按情绪切换**。
-- TTS sha1 缓存 key 含 `tts_module|voice|style|text`，缓存的是 samples/ 文件路径，文件被清理自动失效。
+- TTS sha1 缓存 key 含 `tts_module|voice|style|options|text`（OpenAI options 当前为 `openai_tts_speed`），缓存的是 samples/ 文件路径，文件被清理自动失效。
+- OpenAI TTS 的管理台音色列表为静态维护的 14 个已验证中文音色（普通话、辽宁/陕西、香港、台湾），不运行时请求 Docker 的 `/api/tts/list`。
 - gptsovits/v3/volcano 直接给 response.content 套固定采样率 wav 头，服务端返回完整 wav 或采样率不符会双头/变速。
 - `/audio/<filename>` 路由（数字人按 HttpValue 拉取音频）**无鉴权**，samples/ 可被枚举下载。
 - `ai_module/` 仅剩 `baidu_emotion.py` 在用（fay_core 给音频消息算 Sentiment，未配密钥降级关键词分析）；`nlp_cemotion.py` 是**死代码**（import 但无调用）。
@@ -656,7 +660,7 @@ HTTP 层由**两个相互独立的 Flask 应用**组成：
 
 #### 5000 端口 完整 API 清单
 
-**页面与静态资源（无鉴权，除 `/` 为 HTTPBasic）**：`GET/POST /`、`GET /setting`、`/live2d`、`/dashboard`、`/visitor-report`、`/recommendation`、`/recommendation/manage`、`/knowledge`、`/mcp`（Vue SPA）、`/assets/<path>`（dist 资源）、`/Page3`（legacy MCP 页）、`/audio/<filename>`（TTS 音频，⚠️ 无鉴权可枚举）、`/robot/<filename>`（表情 GIF）、`/avatars/<filename>`（头像）、`/digital-humans/covers/<filename>`、`/digital-humans/live2d-resources/<model>/<path>`。
+**页面与静态资源（除 `/` 为 HTTPBasic，其余由 Vue 路由守卫或业务 API 鉴权）**：`GET/POST /`、`GET /setting`、`/live2d`、`/dashboard`、`/visitor-report`、`/recommendation`、`/recommendation/manage`、`/knowledge`、`/mcp`（Vue SPA 隐藏 admin 路由，不在侧边栏展示）、`/assets/<path>`（dist 资源）、`/frontend-static/<path>`（Vue public 静态资源）、`/Page3`（legacy MCP 页已停用，返回 JSON 404）、`/audio/<filename>`（TTS 音频，⚠️ 无鉴权可枚举）、`/robot/<filename>`（表情 GIF）、`/avatars/<filename>`（头像）、`/digital-humans/covers/<filename>`、`/digital-humans/live2d-resources/<model>/<path>`。
 
 **配置与服务控制**：
 
@@ -710,7 +714,7 @@ HTTP 层由**两个相互独立的 Flask 应用**组成：
 
 #### 5010 端口 完整 API 清单
 
-见 6.6 的 API 表（/api/mcp/* 与 /api/kb/*，外加 `/`→`/Page3` legacy 页面）。
+见 6.6 的 API 表（/api/mcp/* 与 /api/kb/*；5010 的 `/`、`/Page3`、`/setting` legacy 页面入口已停用并返回 JSON 404）。
 
 ---
 
@@ -734,7 +738,7 @@ Vue 3.4 + TS 5.3.3（strict）+ Vite 5 + Pinia 2 + vue-router 4 + Element Plus 2
 
 ### 7.2 路由、守卫与 Store
 
-**路由**（`router/index.ts`，全懒加载）：`/login`（公开）+ AppLayout 嵌套 10 子页：`/`（Message）、`/setting`、`/live2d`、`/dashboard`、`/visitor-report`、`/recommendation`、`/recommendation/manage`、`/knowledge`、`/mcp`、`/users`。
+**路由**（`router/index.ts`，全懒加载）：`/login`（公开）+ AppLayout 嵌套 10 子路由：`/`（Message）、`/setting`（兼容入口，前端重定向 `/live2d`）、`/live2d`、`/dashboard`、`/visitor-report`、`/recommendation`、`/recommendation/manage`、`/knowledge`、`/mcp`、`/users`。其中 `/mcp` 是隐藏管理入口，不写入 `AppLayout.vue navItems`，但仍要求 `requiresAuth: true` + `requiresRole: 'admin'`。
 
 **守卫**（`router/guards.ts`）：`meta.requiresAuth !== false` 即默认**所有路由需认证**（新公开页必须显式 `requiresAuth: false`）；token 存在但 user 为空时先 `refreshUser()`（GET /api/auth/me）；`requiresRole: 'admin'` 非管理员重定向消息页。
 
@@ -753,14 +757,14 @@ Vue 3.4 + TS 5.3.3（strict）+ Vite 5 + Pinia 2 + vue-router 4 + Element Plus 2
 | 页面 | 功能 | 关键依赖 |
 |---|---|---|
 | Message.vue | 三栏聊天（SessionPanel 会话 / MessageList 消息流 / DigitalHumanPanel 数字人）、分享图、think/prestart 折叠、WS 增量合并（watch panelReplySeq → mergePanelReply） | useChatSessions、useMessageSubmit |
-| Setting.vue | 人设/声音交互/自动播报三段表单，hydrate/toConfig 双向映射 FayConfig；**仅 liveState===0 可编辑**；⚠️ 保存会把 `memory.use_bionic_memory` 硬编码 false、items 置空 | api/setting.ts |
-| Live2D.vue | 数字人库卡片网格 CRUD、封面上传、激活、导入本地 Live2D、iframe 预览 | live2d store、DigitalHumanEditor 抽屉 |
+| Setting.vue | 旧人设页组件，前端 `/setting` 路由不再直接加载；兼容入口重定向到 `/live2d`，后续可清理或改为纯交互设置页 | api/setting.ts |
+| Live2D.vue | 数字人库卡片网格 CRUD、封面上传、激活、导入本地 Live2D、iframe 预览；工具栏内置交互设置入口（Q&A、唤醒、音频、记忆、自动播报） | live2d store、DigitalHumanEditor 抽屉、InteractionSettingsDrawer 抽屉 |
 | Dashboard.vue | 看板（KPI/趋势/热门问答/游客感受度/景区/画像/明细），手写 CSS 条形图+SVG 折线，LLM 解读，admin 可重导 Excel/生成游客报告 | api/dashboard.ts |
 | VisitorReport.vue | 独立游客感受度报告页，复用 VisitorReportPanel，侧边栏 `/visitor-report` 入口 | components/dashboard/VisitorReportPanel.vue |
 | Recommendation.vue | 登录用户个性化游览推荐入口，采集兴趣/时间/强度/同行/预算/避开项，展示主路线+备选、时间线、讲解重点、可播报话术、复制/打印/导出/反馈 | api/recommendation.ts |
 | RecommendationManage.vue | admin 推荐数据维护，景点/模板/停靠点/步行边/讲解素材/权重/日志/初始化/JSON+CSV+XLSX 导入导出，支持表格行回填编辑与软删除 | api/recommendation.ts |
 | KnowledgeBase.vue | library 文件管理、ingest、检索测试 | **走 5010** api/knowledgeBase.ts |
-| Mcp.vue | MCP 服务器 CRUD/连接/工具与资源启停（McpServerList/Detail/Dialog 三子组件，行级 loading 用 actionKey 字符串） | **走 5010** api/mcp.ts |
+| Mcp.vue | MCP 服务器 CRUD/连接/工具与资源启停（McpServerList/Detail/Dialog 三子组件，行级 loading 用 actionKey 字符串）；隐藏入口 `/mcp`，不显示在侧边栏 | **走 5010** api/mcp.ts |
 | UserManagement.vue | 用户表格（角色切换/启停/重置密码/删除）、新建弹窗、审计日志 | api/users.ts（admin） |
 | Login.vue | 登录/注册双模式，登录后按 ?redirect= 跳转 | authStore |
 
@@ -778,7 +782,7 @@ Vue 3.4 + TS 5.3.3（strict）+ Vite 5 + Pinia 2 + vue-router 4 + Element Plus 2
 - **流式渲染**：`messageStream.ts mergePanelReply` 按 (id,type,session_id,username) 匹配做 content 字符串拼接。⚠️ 依赖增量帧按序到达，无去重/排序；后端 `is_end` 字段**前端未消费**；断线期间丢失的增量不重放，需手动拉历史。
 - **内容解析**：`messageContent.ts` 提取 `<think>`/`<prestart>` 标签折叠展示；Markdown 先 escapeHtml 再 marked（防注入，但合法 HTML 也无法渲染）；LLM 回复中的 Windows 绝对图片路径转 `/api/local-image?path=` 缩略图，点击调 `/api/open-image` **在服务器本机打开**。
 - **重型库不走 npm**：marked 与 html2canvas 从 Flask `/static/js/*.min.js` 懒加载挂 window——**后端不在线时 Markdown 降级纯文本、分享图失败**；marked 加载完成靠 renderVersion 自增强制重渲染。
-- **Live2D 渲染不在本仓库**：`Live2D.vue`/`live2d.css` 名不副实，实际是数字人库管理页；真正渲染由外部 Cubism SDK for Web 应用（5174 端口，仓库外目录 `D:\Fay\mate-human\...`）通过 sandbox iframe 完成（`sandbox="allow-scripts allow-same-origin"` 组合实际不设防）。数字人 WS 推送**仅 activate 触发**，创建/更新/删除不推送。
+- **Live2D 渲染仍是独立服务**：`Live2D.vue`/`live2d.css` 名不副实，实际是数字人库管理页；真正渲染由 5174 端口的 Cubism SDK for Web 应用通过 sandbox iframe 完成（`sandbox="allow-scripts allow-same-origin"` 组合实际不设防）。Fay 侧资源发现使用项目相对目录 `library/live2d/Samples/Resources`；部署时需让 5174 渲染服务也能访问同一套模型资源。数字人 WS 推送**仅 activate 触发**，创建/更新/删除不推送。
 - 其他：`audioControls.ts`（构造后端配置补丁，非浏览器音频）、`webgl.ts`（WebGL 探测）、`shareSelection/shareImage`（分享图选择与 html2canvas 导出）、`navigation.ts`（菜单高亮）。
 - ⚠️ `UserRecord` 是元组类型 `[uid, username, avatar?]`，取 username 用下标 `[1]`；后端用户消息 type 为 `'member'`，前端把所有非 `'fay'` 类型按用户气泡渲染（隐式约定）；`getMessageHistory` 对返回做了 `.flat()`（后端可能返回嵌套数组）。
 
@@ -877,6 +881,7 @@ Vitest（`npm test`，单文件 `npm test -- src/utils/xxx.test.ts`），细节�
 - `docs/Prompt设计文档.md`：双阶段 LLM 架构（规划器+最终输出）、prestart/think 标签语义。⚠️ 规划器 JSON 契约**已落后于代码**（文档写 `{"action":"tool","tool":...}`，实际是闲聊判断器输出 `{"action":"tool","keyword":...}`，且未记载大小模型协作架构）——以代码为准并回填文档。
 - `docs/memory_module.md`：记忆模块架构（与代码一致；`_log_prompt` 已是空操作，调试 Prompt 需临时恢复）。
 - `docs/MCP外部调用接口.md`：5010 端口对外契约（**比 CLAUDE.md 准确**）。
+- `docs/mcp-retired.md`：当前景区数字人项目已下线 MCP 的归档说明，记录 `tools`、`schedule_manager`、`window_capture`、`logseq` 的下线原因和恢复方式。
 - `docs/Fay侧标准动作改造说明.md`：动作信号协议设计（对应 11.3）。
 - `docs/superpowers/plans/`：已完成的实施计划（YYYY-MM-DD-feature.md，checkbox 全勾选，对应提交 d11e443 认证看板与数字人库——是**实施记录**，勿重复实施）。新实施计划按此格式（Goal/Architecture/Chunk/Task + Final Verification Snapshot）。
 - `scripts/update_logo_version.py`：唯一辅助脚本（Pillow 重绘 Logo 版本号，支持 --dry-run）。
@@ -898,16 +903,16 @@ Vitest（`npm test`，单文件 `npm test -- src/utils/xxx.test.ts`），细节�
 - ⚠️ utterance/categorical/numerical 问卷模板链路在主流程**无调用方**（Fay 实际对话走 nlp_cognitive_stream），改 utterance_v1.txt 不影响日常对话。
 - 新增 Agent LLM 行为：新建模板 → 在 memory_stream.py/interaction.py 写 `run_gpt_generate_xxx` 三件套（create_prompt_input / _func_clean_up / _get_fail_safe）→ `chat_safe_generate` 调用 → GenerativeAgent 薄封装。JSON 解析放 llm_json_parser.py，勿放 global_methods。
 
-### 11.2 旧版 Web 管理界面（legacy GUI，并非死代码）
+### 11.2 旧版 Web 管理界面（legacy GUI）
 
-Jinja2 + Vue2（CDN）+ Element UI 三页面，**两个活跃场景**：
+Jinja2 + Vue2（CDN）+ Element UI 页面目前主要作为 Vue dist 缺失时的回退路径：
 
 1. **回退路径**：`flask_server.__get_vue_app()` 在 `fay-frontend/dist` 缺失时回退渲染 `gui/templates/index.html`（消息页）/`setting.html`（人设页）。当前仓库 dist 存在，默认不触发；`/live2d` 等新路由 dist 缺失时统一回退到旧消息页（无对应 legacy 页）。
-2. **始终活跃**：`faymcp/templates/Page3.html` 是 5010 端口的 MCP 管理页（服务端渲染 mcp_servers 卡片 + data-* 属性即状态），**无 Vue 回退逻辑**。
+2. **MCP legacy 已停用**：`faymcp/templates/Page3.html` 文件仍保留，但 5010 端口的 `GET /`、`/Page3`、`/setting` 均返回 JSON 404；主 Flask 的 `/Page3` 也返回 JSON 404。MCP 管理统一走新前端 `/mcp` 隐藏 admin 路由，legacy `index.html`/`setting.html` 左侧菜单已移除 MCP 跳转。
 
 价值：`gui/static/js/index.js`（FayInterface 类）与 `setting.js` 完整记录了后端 API 与 10003 WS 的**行为契约**（panelReply 按 id 拼接 + 150ms 防抖 + 500ms 静默后 `/api/get-msg-by-id` 兜底拉全文；liveState 状态机；config JSON 结构），是核对新前端接口一致性的权威参照。
 
-坑：Jinja2 与 Vue2 共存时 Vue 定界符为 `[[ ]]`；index.js 与 setting.js 各复制一份 FayInterface 不共享；⚠️ `flask_server.py:1720` 的 `/Page3` 路由是**残留死路由**（模板目录无此文件必然报错，真 Page3 在 5010）；启用认证后 legacy 页裸 fetch 5010 不带 Bearer 会 401（MCP 灯恒离线）；页面间 5000↔5010 跳转端口硬编码；`setting.js` 用 eval 解析响应、保存配置 fire-and-forget。
+坑：Jinja2 与 Vue2 共存时 Vue 定界符为 `[[ ]]`；index.js 与 setting.js 各复制一份 FayInterface 不共享；legacy 页面仍是无 JWT 的旧接口调用模型；`setting.js` 用 eval 解析响应、保存配置 fire-and-forget。
 
 ### 11.3 动作信号规则（config/action_rules.csv）
 
@@ -921,7 +926,7 @@ Jinja2 + Vue2（CDN）+ Element UI 三页面，**两个活跃场景**：
 
 ### 11.5 MCP 子服务器辅助组件
 
-- **schedule_manager/web_server.py**：日程 MCP 的独立 Flask Web 管理（127.0.0.1:5011），由 server.py 在 MCP 连接建立时以子进程拉起，与 server.py 共享 `schedules.db`；跨进程通知靠写 `.reschedule_<id>` 触发文件（写失败静默吞掉）。坑：无鉴权 CORS 全开；`/api/schedule/complete/<id>` 名为完成实际软删除为 deleted；两进程共写 SQLite 无 WAL 可能锁库。
+- **schedule_manager/web_server.py**：日程 MCP 源码保留但当前未注册；恢复注册并连接 `schedule_manager/server.py` 后，才会以子进程拉起 127.0.0.1:5011 Web 管理页。它与 server.py 共享 `schedules.db`；跨进程通知靠写 `.reschedule_<id>` 触发文件（写失败静默吞掉）。坑：无鉴权 CORS 全开；`/api/schedule/complete/<id>` 名为完成实际软删除为 deleted；两进程共写 SQLite 无 WAL 可能锁库。
 - **yueshen_rag/embedding_config.py**：embedding 覆盖开关——仅 `YUESHEN_ALLOW_EMBED_OVERRIDE=1` 时才在 MCP 工具 schema 暴露并接受 `embedding_base_url/api_key/model` 覆盖参数，否则**静默忽略**（排查"覆盖不生效"先查此环境变量）。yueshen 默认 embedding 走 Fay 本机透传端点 `http://127.0.0.1:5000/v1`（key `sk-fay`，model `embedding`）。
 
 ---
@@ -950,11 +955,12 @@ Jinja2 + Vue2（CDN）+ Element UI 三页面，**两个活跃场景**：
 |---|---|---|
 | 保留兼容 | **软门禁**：auth.enabled 缺省关闭，所有"受保护"接口实际不设防（6.3） | 生产必须显式配置 `auth.enabled=true`；若要改成默认强鉴权，需要同步 legacy 页面、WS 首包鉴权、测试夹具和部署文档，避免破坏无认证本地启动。 |
 | 已修正代码注释 | **文档过时**：CLAUDE.md 称 MCP SSE 端口 9002，实际默认 **8765** | `fay_booter.py` 注释已按默认开启修正；仍以 `FAY_MCP_SSE_HOST/PORT/PATH` 控制绑定地址、端口与路径。CLAUDE.md 被 gitignore，本文件继续作为当前事实来源。 |
-| 已修复 | **Live2D Samples 路径**：原默认值是开发者本机绝对路径 | 默认扫描 `library/live2d/Samples`；换机或使用外部 Cubism SDK 时仍可设 `FAY_LIVE2D_SAMPLES_ROOT`。 |
+| 已修复 | **Live2D Samples 路径**：原默认值是开发者本机绝对路径 | 默认扫描项目根下 `library/live2d/Samples`；也可用 `config.json live2d.samples_root` 配置项目相对路径，或用 `FAY_LIVE2D_SAMPLES_ROOT` 覆盖。 |
 | 已修复 | **config.json 会被程序回写**（数字人库/人设），手工编辑可能与运行中进程互相覆盖 | 已新增 `save_config_sections()` 做顶层配置段级替换，数字人库/人设、`/api/submit`、麦克风开关不再用陈旧内存对象全量覆盖其他顶层段；写文件经临时文件 + `os.replace` 原子替换。仍避免同时编辑同一顶层段。 |
 | 操作约束 | **配置中心记忆化**：远端改配置后需 force_reload 或重启；密钥经 `FAY_SYSTEM_CONF_JSON` 传给子进程 | 当前按设计保留；排障时优先重启或调用 `load_config(force_reload=True)`，后续可加管理员 reload API。 |
 | 已修复 | **每次启动清空 logs/ 与 samples/**，排障注意日志不保留 | 已改为启动时归档 `logs/*.log` 与 `samples/sample-*` 到 `archive/<启动批次>/`，并默认只保留最近 10 个归档批次，避免无限增长。 |
 | 已修正文档 | **MCP 工具启停状态需重启 MCP 客户端连接才生效** | 当前代码已即时生效：toggle 路由写 `mcp_tool_states.json` 后调用 `tool_registry.update_tool_enabled()` 重建聚合缓存，LLM 侧从 `tool_registry.get_enabled_tools()` 读取最新启用工具。 |
+| 操作约束 | **运行中 MCP 服务会回写 `faymcp/data/*.json`** | 5010 服务持有 `mcp_servers` 内存态，手工改 JSON 可能被后续保存覆盖；服务运行时删除/更新 MCP 优先走 `/mcp` 页面或 5010 API。 |
 | 已修复 | **看板会话统计与 content_db 会话记录曾是两套逻辑** | 已改为读取 `T_ServiceSession`；legacy 无 `session_id` 消息才按 30 分钟规则兜底推导。 |
 | 已修复 | **QA 多候选随机选答 + CSV 第三列可执行任意命令** | 已改为稳定选择最高分候选；CSV 第三列命令动作默认禁用，仅 `interact.enableQnACommandActions=true` 时启用。 |
 | 操作约束 | **`memory.isolate_by_user` 切换后需重新初始化记忆目录** | 当前仍需人工迁移/重建；后续可提供迁移脚本，把 shared/User 目录按用户名拆分或合并。 |
@@ -993,7 +999,8 @@ Jinja2 + Vue2（CDN）+ Element UI 三页面，**两个活跃场景**：
 - 行为类：加 `config.json`，经 `config_util.config['...']` 访问；写回优先用 `save_config_sections()` 指定顶层段。注意配置中心模式下两份文件都来自 `cache_data/`。
 
 ### 14.6 新增 MCP 工具 / 服务器
-- 外部服务器：在 `mcp_servers/` 建目录实现 MCP 协议（参考 schedule_manager），注册进 `faymcp/data/mcp_servers.json`，经管理界面/API 启用。
+- 外部服务器：在 `mcp_servers/` 建目录实现 MCP 协议（参考 schedule_manager），注册进 `faymcp/data/mcp_servers.json`，经隐藏管理页 `/mcp`（admin 登录后直访）或 5010 API 启用；服务运行中不要只手改 JSON，避免被内存态回写。
+- 下线服务器：优先通过 `/mcp` 或 5010 DELETE API 删除，确保同步清理工具状态、资源状态和预启动状态；源码目录可保留作未来恢复来源。
 - 暴露 Fay 能力：`faymcp/mcp_server.py` 加工具定义 + `runtime_bridge.py` 实现逻辑，自动经 SSE 服务器暴露。
 
 ### 14.7 新增数据库迁移

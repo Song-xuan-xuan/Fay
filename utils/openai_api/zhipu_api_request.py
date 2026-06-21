@@ -86,7 +86,7 @@ def simple_chat(use_stream=True):
 
 def embedding():
     response = client.embeddings.create(
-        model="bge-large-zh-1.5",
+        model="BAAI/bge-m3",
         input=["ChatGLM3-6B 是一个大型的中英双语模型。"],
     )
     embeddings = response.data[0].embedding

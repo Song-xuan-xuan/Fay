@@ -1,0 +1,140 @@
+.route-workbench {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(360px, 1fr) minmax(300px, 360px);
+  gap: 16px;
+  align-items: start;
+}
+
+.route-library-panel,
+.route-node-panel {
+  position: sticky;
+  top: 20px;
+}
+
+.route-head p,
+.workbench-editor-block h4 {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.route-picker {
+  width: min(260px, 100%);
+}
+
+.route-template-table {
+  margin: 12px 0 16px;
+}
+
+.workbench-editor-block {
+  border-top: 1px solid var(--color-border);
+  padding-top: 14px;
+}
+
+.route-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.route-summary-strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  background: rgba(64, 158, 255, 0.08);
+  padding: 6px 10px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.workbench-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workbench-stop {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.workbench-stop.active {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
+}
+
+.timeline-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.timeline-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-body strong,
+.timeline-body em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-body em {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-style: normal;
+}
+
+.timeline-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.route-advanced-panel {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .route-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .route-library-panel,
+  .route-node-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .workbench-stop {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .timeline-actions {
+    grid-column: 2;
+    flex-wrap: wrap;
+  }
+}

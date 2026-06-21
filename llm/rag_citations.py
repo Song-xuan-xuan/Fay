@@ -5,7 +5,8 @@ from typing import Any, Iterable, List
 
 
 INLINE_PREFIX = "引用来源："
-CITATION_TITLE = "依据："
+CITATION_TITLE = "参考资料："
+LEGACY_CITATION_TITLES = ("依据：",)
 
 
 def append_inline_citations(text: str, raw_result: Any) -> str:
@@ -24,7 +25,7 @@ def append_citation_section(answer: str, tool_results: Iterable[Mapping[str, Any
     if not section:
         return answer
     cleaned = (answer or "").rstrip()
-    if CITATION_TITLE in cleaned:
+    if CITATION_TITLE in cleaned or any(title in cleaned for title in LEGACY_CITATION_TITLES):
         return cleaned
     return f"{cleaned}\n\n{section}"
 
@@ -91,6 +92,12 @@ def _extract_from_mapping(value: Mapping[str, Any]) -> List[str]:
         citation = _format_metadata_citation(metadata)
         if citation:
             citations.append(citation)
+    course_citation = _format_course_citation(value)
+    if course_citation:
+        citations.append(course_citation)
+    nested_course_citation = _format_nested_course_citation(value)
+    if nested_course_citation:
+        citations.append(nested_course_citation)
     for key in ("results", "content", "text", "data"):
         if key in value:
             citations.extend(_walk_for_citations(value[key]))
@@ -99,12 +106,32 @@ def _extract_from_mapping(value: Mapping[str, Any]) -> List[str]:
 
 def _format_metadata_citation(metadata: Mapping[str, Any]) -> str:
     source = str(metadata.get("source") or "").strip()
-    if not source:
+    return source
+
+
+def _format_course_citation(value: Mapping[str, Any]) -> str:
+    source = _first_text(value, ("source_title", "source_name"))
+    if not source and ("source_id" in value or "source_type" in value):
+        source = _first_text(value, ("title", "name"))
+    return source
+
+
+def _format_nested_course_citation(value: Mapping[str, Any]) -> str:
+    source = value.get("source")
+    if not isinstance(source, Mapping):
         return ""
-    page = metadata.get("page")
-    if page is None or str(page).strip() == "":
-        return source
-    return f"{source} 第{page}页"
+    source_title = _first_text(source, ("title", "source_title", "source_name", "name"))
+    if not source_title:
+        return ""
+    return source_title
+
+
+def _first_text(value: Mapping[str, Any], keys: Iterable[str]) -> str:
+    for key in keys:
+        text = str(value.get(key) or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _dedupe(items: Iterable[str]) -> List[str]:

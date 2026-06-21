@@ -11,6 +11,10 @@ def _resolve_runtime_dir():
 _RUNTIME_DIR = _resolve_runtime_dir()
 os.environ['PATH'] += os.pathsep + os.path.join(_RUNTIME_DIR, "test", "ovr_lipsync", "ffmpeg", "bin")
 
+from utils.runtime_warnings import suppress_pygame_pkg_resources_warning
+
+suppress_pygame_pkg_resources_warning()
+
 
 def _resolve_runner_script_path(script_arg):
     candidate = str(script_arg or "").strip()

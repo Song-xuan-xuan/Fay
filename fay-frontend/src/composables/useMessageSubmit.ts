@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { sendMessage as sendMessageApi } from '../api/message';
+import { BRAND_SERVICE_NAME } from '../config/brand';
 import { useAuthStore } from '../stores/auth';
 
 const MESSAGE_REFRESH_DELAY_MS = 500;
@@ -132,7 +133,7 @@ async function validateAndUpload(options: SubmitPrecheckOptions) {
     return null;
   }
   if (options.liveState !== 1) {
-    ElMessage.warning('请先开启 Fay 服务');
+    ElMessage.warning(`请先开启 ${BRAND_SERVICE_NAME}`);
     return null;
   }
   return uploadPendingImages(options.files, options.username);

@@ -52,11 +52,15 @@ class RecommendationCatalogMixin:
 
     def upsert_route_stop(self, template_id, attraction_id, order_index=0, stay_minutes=30, **options):
         payload = {
-            'id': options.get('id'), 'template_id': template_id, 'attraction_id': attraction_id,
+            'id': options.get('id'), 'template_id': template_id, 'attraction_id': attraction_id or 0,
+            'node_name': options.get('node_name', ''), 'node_type': options.get('node_type', 'attraction'),
             'order_index': order_index, 'stay_minutes': stay_minutes,
             'note': options.get('note', ''), 'enabled': bool_int(options.get('enabled', True)),
         }
-        fields = ('template_id', 'attraction_id', 'order_index', 'stay_minutes', 'note', 'enabled')
+        fields = (
+            'template_id', 'attraction_id', 'node_name', 'node_type',
+            'order_index', 'stay_minutes', 'note', 'enabled',
+        )
         return self._upsert('recommendation_route_stop', payload, fields)
 
     def list_route_stops(self, template_id=None):

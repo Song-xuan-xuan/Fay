@@ -1,6 +1,6 @@
 # Fay 数字人知识库助手
 
-本仓库基于 Fay 数字人框架进行二次开发，集成了 Vue 管理端、用户认证、数据看板、消息会话、头像上传、MCP 管理、知识库上传与 RAG 检索等能力。项目主要用于搭建可本地运行的数字人问答平台，并支持通过本地 embedding 模型构建私有知识库。
+本仓库基于 Fay 数字人框架进行二次开发，集成了 Vue 管理端、用户认证、数据看板、消息会话、头像上传、MCP 管理、知识库上传与 RAG 检索等能力。项目主要用于搭建可本地运行的数字人问答平台，并通过 OpenAI 兼容的 Embedding API 构建私有知识库。
 
 ## 功能概览
 
@@ -9,7 +9,7 @@
 - 管理看板：提供运行状态、用户数据、会话数据和系统指标展示。
 - 知识库：管理员可在前端上传文档，触发 ingest 后供 RAG 查询使用。
 - MCP 管理：在 Vue 页面中管理 MCP server、工具、资源和连接状态。
-- 本地 embedding：支持加载 `model/bge-large-zh-v1.5` 等本地模型，避免依赖远程 embedding API。
+- API embedding：通过 OpenAI 兼容 `/embeddings` 接口完成知识库向量化，可单独配置模型、base url 和 API key。
 
 ## 项目结构
 
@@ -116,22 +116,19 @@ MCP 中常见知识库工具含义：
 
 如果对应的 RAG MCP server 未启动或未连接，RAG 工具不会参与回答。
 
-## 本地 Embedding 模型
+## Embedding API 配置
 
-推荐将本地模型放在：
+项目默认使用 OpenAI 兼容的 Embedding API。复制 `system.conf.bak` 为 `system.conf` 后，推荐显式配置：
 
-```text
-model/bge-large-zh-v1.5
+```ini
+embedding_api_model=BAAI/bge-m3
+embedding_base_url=https://api.siliconflow.cn/v1
+embedding_api_key=你的-embedding-api-key
 ```
 
-然后在配置中将 embedding 模型指向该路径，或使用环境变量：
+如果 `embedding_base_url` 留空，会复用 `gpt_base_url`；如果 `embedding_api_key` 留空，会复用 `gpt_api_key`。RAG MCP 默认调用 Fay 的 `/v1/embeddings` 透传端点，因此通常只需要在 Fay 主配置中维护 embedding 参数。
 
-```powershell
-$env:EMBEDDING_MODEL_PATH="model/bge-large-zh-v1.5"
-python main.py start
-```
-
-服务启动日志中出现 embedding 维度初始化和预热完成，说明本地 embedding 服务已加载。`bge-large-zh-v1.5` 的常见向量维度为 1024。
+切换 Embedding API、模型或向量维度后，建议重新执行知识库 ingest，避免旧向量与新模型混用导致检索质量下降。
 
 ## 常用开发命令
 

@@ -120,3 +120,13 @@ def is_prestart(server_id: int, tool_name: str) -> bool:
     with _lock:
         return tool_name in _prestart.get(int(server_id), {})
 
+
+def remove_server(server_id: int) -> None:
+    """Remove all prestart entries for a deleted server."""
+    _ensure_loaded()
+    with _lock:
+        server_id = int(server_id)
+        if server_id in _prestart:
+            del _prestart[server_id]
+            _save_locked()
+

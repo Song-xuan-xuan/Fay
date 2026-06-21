@@ -1,19 +1,25 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, type CSSProperties } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { CheckCircle2, ExternalLink, FolderSync, ImagePlus, Monitor, Pencil, Plus, Search, Trash2 } from '@lucide/vue';
+import { CheckCircle2, ExternalLink, FolderSync, ImagePlus, Monitor, Pencil, Plus, Search, Settings, Trash2 } from '@lucide/vue';
 import { createDigitalHuman, deleteDigitalHuman, importLive2dResourceHumans, uploadDigitalHumanCover } from '../api/digitalHumans';
 import DigitalHumanEditor from '../components/digital-humans/DigitalHumanEditor.vue';
+import InteractionSettingsDrawer from '../components/digital-humans/InteractionSettingsDrawer.vue';
 import { useAppStore } from '../stores/app';
+import { useAuthStore } from '../stores/auth';
 import { useLive2dStore } from '../stores/live2d';
 import type { DigitalHuman, DigitalHumanPayload, DigitalHumanType } from '../types';
+import { DEFAULT_DIGITAL_HUMAN_COVER_SRC } from '../utils/assets';
+import { withFayConnectionParams } from '../utils/fayConnectionParams';
 
 const appStore = useAppStore();
+const authStore = useAuthStore();
 const live2d = useLive2dStore();
 const loading = ref(false);
 const saving = ref(false);
 const importing = ref(false);
 const editorVisible = ref(false);
+const settingsVisible = ref(false);
 const previewVisible = ref(false);
 const editingId = ref('');
 const previewHuman = ref<DigitalHuman | null>(null);
@@ -41,6 +47,15 @@ const typeOptions: Array<{ label: string; value: DigitalHumanType | '' }> = [
 
 const activeName = computed(() => live2d.activeHuman?.name || '未设置');
 const activeTypeLabel = computed(() => typeLabel(live2d.activeHuman?.type));
+const previewRenderUrl = computed(() => {
+  const human = previewHuman.value;
+  if (!human || human.type === 'image') {
+    return '';
+  }
+  const username = appStore.selectedUser?.[1] || authStore.user?.username || 'User';
+  return withFayConnectionParams(human.render_url || '', authStore.token, username);
+});
+const previewCoverUrl = computed(() => (previewHuman.value ? coverSource(previewHuman.value) : DEFAULT_DIGITAL_HUMAN_COVER_SRC));
 
 function typeLabel(type?: DigitalHumanType | '') {
   if (type === 'live2d') return 'Live2D';
@@ -52,6 +67,31 @@ function typeLabel(type?: DigitalHumanType | '') {
 function personaSummary(human: DigitalHuman) {
   const persona = human.persona || {};
   return [persona.position, persona.goal, persona.job, persona.additional].filter(Boolean).join(' · ') || '未填写人设摘要';
+}
+
+function coverSource(human: DigitalHuman) {
+  return human.cover_url || DEFAULT_DIGITAL_HUMAN_COVER_SRC;
+}
+
+function hasCustomCover(human: DigitalHuman) {
+  return coverSource(human) !== DEFAULT_DIGITAL_HUMAN_COVER_SRC;
+}
+
+function modelInitials(human: DigitalHuman) {
+  const name = (human.name || human.id || '').trim();
+  const parts = name.match(/[A-Za-z0-9]+/g);
+  if (parts?.length) {
+    const text = parts.length === 1 ? parts[0].slice(0, 2) : parts.map((part) => part[0]).join('');
+    return text.toUpperCase();
+  }
+  return Array.from(name).slice(0, 2).join('') || 'DH';
+}
+
+function coverAccentStyle(human: DigitalHuman): CSSProperties {
+  const seed = human.id || human.name;
+  const hues = [204, 156, 28, 278, 334, 92, 14];
+  const index = Array.from(seed).reduce((total, char) => total + char.charCodeAt(0), 0) % hues.length;
+  return { '--cover-hue': `${hues[index]}` } as CSSProperties;
 }
 
 function resetForm() {
@@ -72,6 +112,10 @@ function resetForm() {
 function openCreate() {
   resetForm();
   editorVisible.value = true;
+}
+
+function openInteractionSettings() {
+  settingsVisible.value = true;
 }
 
 function openEdit(human: DigitalHuman) {
@@ -137,8 +181,16 @@ async function importLocalLive2dHumans() {
   try {
     const result = await importLive2dResourceHumans();
     await loadDigitalHumans();
-    if (result.imported.length) {
-      ElMessage.success(`已导入 ${result.imported.length} 个本地 Live2D 形象`);
+    const updatedCount = result.updated?.length || 0;
+    if (result.imported.length || updatedCount) {
+      const parts = [];
+      if (result.imported.length) {
+        parts.push(`导入 ${result.imported.length} 个`);
+      }
+      if (updatedCount) {
+        parts.push(`刷新 ${updatedCount} 个`);
+      }
+      ElMessage.success(`已${parts.join('，')}本地 Live2D 形象`);
     } else {
       ElMessage.info('本地 Live2D 形象已在数字人库中');
     }
@@ -177,6 +229,10 @@ async function removeHuman(human: DigitalHuman) {
 function openPreview(human: DigitalHuman) {
   previewHuman.value = human;
   previewVisible.value = true;
+}
+
+function clearPreview() {
+  previewHuman.value = null;
 }
 
 function openCoverUpload(human: DigitalHuman) {
@@ -233,6 +289,7 @@ onMounted(loadDigitalHumans);
           <el-option v-for="item in typeOptions" :key="item.label" :label="item.label" :value="item.value" />
         </el-select>
         <el-button :icon="Search" @click="searchDigitalHumans">搜索</el-button>
+        <el-button :icon="Settings" @click="openInteractionSettings">交互设置</el-button>
         <el-button :icon="FolderSync" :loading="importing" @click="importLocalLive2dHumans">导入本地形象</el-button>
         <el-button :icon="Plus" type="primary" @click="openCreate">新增</el-button>
       </div>
@@ -246,7 +303,18 @@ onMounted(loadDigitalHumans);
         :class="{ active: human.id === live2d.activeId }"
       >
         <div class="human-cover">
-          <img :src="human.cover_url || '/static/images/Normal.gif'" :alt="human.name" />
+          <img v-if="hasCustomCover(human)" :src="coverSource(human)" :alt="human.name" />
+          <div
+            v-else
+            class="human-cover-placeholder"
+            :style="coverAccentStyle(human)"
+            role="img"
+            :aria-label="`${human.name} 静态预览占位`"
+          >
+            <span class="human-cover-mark" aria-hidden="true">{{ modelInitials(human) }}</span>
+            <strong>{{ human.name }}</strong>
+            <span>{{ typeLabel(human.type) }} · 待生成封面</span>
+          </div>
           <span v-if="human.id === live2d.activeId" class="active-badge">
             <CheckCircle2 :size="14" aria-hidden="true" /> 当前
           </span>
@@ -297,19 +365,28 @@ onMounted(loadDigitalHumans);
       @save="saveDigitalHuman"
       @cover-change="handleCoverChange"
     />
+    <InteractionSettingsDrawer v-model:visible="settingsVisible" />
 
-    <el-dialog v-model="previewVisible" :title="previewHuman?.name || '预览'" width="72vw" class="digital-human-preview-dialog">
+    <el-dialog
+      v-model="previewVisible"
+      :title="previewHuman?.name || '预览'"
+      width="72vw"
+      class="digital-human-preview-dialog"
+      append-to-body
+      destroy-on-close
+      @closed="clearPreview"
+    >
       <div v-if="previewHuman" class="digital-human-preview">
         <iframe
-          v-if="previewHuman.type !== 'image'"
-          :src="previewHuman.render_url"
+          v-if="previewRenderUrl"
+          :src="previewRenderUrl"
           title="数字人预览"
           sandbox="allow-scripts allow-same-origin"
         />
-        <img v-else :src="previewHuman.cover_url" :alt="previewHuman.name" />
+        <img v-else :src="previewCoverUrl" :alt="previewHuman.name" />
       </div>
       <template #footer>
-        <el-button v-if="previewHuman?.render_url" :icon="ExternalLink" tag="a" :href="previewHuman.render_url" target="_blank">新窗口打开</el-button>
+        <el-button v-if="previewRenderUrl" :icon="ExternalLink" tag="a" :href="previewRenderUrl" target="_blank">新窗口打开</el-button>
         <el-button @click="previewVisible = false">关闭</el-button>
       </template>
     </el-dialog>

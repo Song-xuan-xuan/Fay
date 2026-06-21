@@ -31,9 +31,12 @@ export interface RecommendationStop {
   id?: number;
   template_id?: number;
   attraction_id: number;
+  node_name?: string;
+  node_type?: string;
   order_index: number;
   stay_minutes: number;
   note?: string;
+  enabled?: boolean;
 }
 
 export interface RecommendationEdge {
@@ -105,6 +108,8 @@ export interface RecommendationRouteStop {
   end_time: string;
   difficulty: number;
   indoor: boolean;
+  node_type?: string;
+  score_eligible?: boolean;
   explanation_focus: string;
   script: string;
 }

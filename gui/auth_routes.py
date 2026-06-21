@@ -244,3 +244,18 @@ def register_auth_routes(app):
             offset=request.args.get('offset', 0),
         )
         return jsonify(result)
+
+    @app.route('/api/audit-logs/cleanup', methods=['POST'])
+    @auth_service.require_auth
+    @auth_service.require_role('admin')
+    def api_audit_logs_cleanup():
+        data = _json_data()
+        try:
+            days = int(data.get('days') or 90)
+        except (TypeError, ValueError):
+            return jsonify({'error': '保留天数无效'}), 400
+        if days < 1 or days > 3650:
+            return jsonify({'error': '保留天数必须在 1 到 3650 之间'}), 400
+        deleted = audit_service.new_instance().cleanup_older_than(days)
+        _log_admin_action('audit_log_cleanup', 'T_AuditLog', {'days': days, 'deleted': deleted})
+        return jsonify({'success': True, 'deleted': deleted, 'days': days})

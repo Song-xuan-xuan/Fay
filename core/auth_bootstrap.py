@@ -1,4 +1,4 @@
-from core import member_db
+from core import auth_service, member_db
 from utils import config_util, util
 
 
@@ -8,15 +8,9 @@ def _auth_config():
     return {}
 
 
-def _as_bool(value):
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
-
-
 def ensure_default_admin():
     auth = _auth_config()
-    if not _as_bool(auth.get('enabled', False)):
+    if not auth_service.auth_enabled():
         return False
     db = member_db.new_instance()
     if db.has_admin_user():
@@ -30,8 +24,7 @@ def ensure_default_admin():
 
 
 def log_auth_status():
-    auth = _auth_config()
-    if _as_bool(auth.get('enabled', False)):
+    if auth_service.auth_enabled():
         util.log(1, '用户认证已启用')
         return
     util.log(1, '用户认证功能当前处于禁用状态')

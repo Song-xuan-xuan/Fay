@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { LogIn, UserPlus } from '@lucide/vue';
+import { BRAND_CONSOLE_EYEBROW, BRAND_PRODUCT_TAGLINE } from '../config/brand';
 import { useAuthStore } from '../stores/auth';
 
 type AuthMode = 'login' | 'register';
@@ -100,9 +101,9 @@ async function submitAuth() {
     <div class="auth-backdrop" aria-hidden="true" />
     <section class="auth-modal" role="dialog" aria-labelledby="auth-title" aria-modal="true">
       <div class="auth-title">
-        <p class="eyebrow">Fay Console</p>
+        <p class="eyebrow">{{ BRAND_CONSOLE_EYEBROW }}</p>
         <h1 id="auth-title">{{ authMode === 'login' ? '登录' : '注册' }}</h1>
-        <p class="auth-subtitle">登录后才能使用数字人管理台</p>
+        <p class="auth-subtitle">登录后才能使用{{ BRAND_PRODUCT_TAGLINE }}</p>
       </div>
 
       <div class="auth-mode-tabs" role="tablist" aria-label="认证方式">

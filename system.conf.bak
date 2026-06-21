@@ -1,8 +1,13 @@
 
 [key]
-#funasr / ali / sensevoice
+#funasr / ali / sensevoice / zhipu
 #建议使用funasr,请依照asr/funasr/README>md的说明启动
 ASR_mode = funasr
+#使用zhipu时填写以下智谱GLM-ASR-2512接口配置
+asr_api_url=https://open.bigmodel.cn/api/paas/v4/audio/transcriptions
+asr_api_key=
+asr_api_model=glm-asr-2512
+asr_api_timeout=30
 #ASR二选一（需要运行fay/test/funasr服务）集成达摩院asr项目、感谢中科大脑算法工程师张聪聪提供集成代码
 local_asr_ip=127.0.0.1
 local_asr_port=10197
@@ -16,6 +21,7 @@ ali_nls_app_key=
 
 #tts类型（切换请重新选择所需要的声音）azure、ali、gptsovits、volcano、gptsovits_v3
 tts_module=ali
+openai_tts_speed=1.0
 
 # 微软 文字转语音 服务密钥（非必须，使用可产生不同情绪的音频）https://azure.microsoft.com/zh-cn/services/cognitive-services/text-to-speech/
 ms_tts_key=
@@ -49,11 +55,13 @@ big_model_base_url=
 #大模型 api key（留空则复用小模型的 gpt_api_key）
 big_model_api_key=
 
-# Embedding 模型配置
-# Embedding 模型名称，如 text-embedding-qwen3-embedding-0.6b、BAAI/bge-large-zh-v1.5
-embedding_api_model=
-# Embedding 服务 base url（可单独配置；留空则复用小模型的 gpt_base_url，key 始终复用 gpt_api_key）
+# Embedding 模型配置（默认走 OpenAI 兼容 API）
+# Embedding 模型名称，如 BAAI/bge-m3、text-embedding-qwen3-embedding-0.6b
+embedding_api_model=BAAI/bge-m3
+# Embedding 服务 base url（可单独配置；留空则复用小模型的 gpt_base_url）
 embedding_base_url=
+# Embedding API key（可单独配置；留空则复用小模型的 gpt_api_key）
+embedding_api_key=
 
 #gpt(fastgpt)代理(可为空，填写例子：127.0.0.1:7890)
 proxy_config=

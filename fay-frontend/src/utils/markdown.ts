@@ -1,3 +1,5 @@
+import { MARKED_SCRIPT_SRC } from './assets';
+
 interface MarkedApi {
   setOptions: (options: { breaks: boolean; gfm: boolean }) => void;
   parse: (content: string) => string;
@@ -8,8 +10,6 @@ declare global {
     marked?: MarkedApi;
   }
 }
-
-const MARKED_SRC = '/static/js/marked.min.js';
 
 function isMarkedApi(value: unknown): value is MarkedApi {
   const api = value as Partial<MarkedApi> | undefined;
@@ -28,7 +28,7 @@ export async function loadMarked(): Promise<MarkedApi> {
 
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = MARKED_SRC;
+    script.src = MARKED_SCRIPT_SRC;
     script.async = true;
     script.onload = () => {
       const marked = getMarked();

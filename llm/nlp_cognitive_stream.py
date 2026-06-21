@@ -60,6 +60,7 @@ from llm.execution_manager import (
     ExecutionManager, ExecutionState, ExecutionStatus,
     get_execution_manager, _get_llm_instance,
 )
+from llm.mcp_tool_routing import select_initial_knowledge_tool
 
 # 加载配置
 cfg.load_config()
@@ -875,35 +876,35 @@ def _build_planner_messages(state: AgentState) -> List[SystemMessage | HumanMess
     tool_names = ", ".join(tool_specs.keys()) if tool_specs else "无"
 
     planner_system = _merge_system_input(
-        "你是一个闲聊判断器。判断用户的话是不是闲聊，请严格输出合法 JSON，不要输出其他内容。",
+        "你是一个轻量分流器。判断用户问题是否必须检索当前景区知识库，请严格输出合法 JSON，不要输出其他内容。",
         '【你在系统里的角色】'
-        '\n你是第一响应者。你的回答如果涉及事实信息，系统会在后台另起一个大模型自动核实并修正，'
-        '用户最终看到的是"你的回答 + 系统加的过渡语 + 核实模型的修正"。'
-        '\n所以：不要自己演过渡过程。不要在 message 里写'
-        '"我来查一下""等等我核实一下""稍等我看看""马上好""我这就重新跑一下"这类描述动作的话 —— '
-        '那些过渡语由系统统一插入，你写了只会和系统的话重复。'
+        '\n你是第一响应者。你的任务是减少不必要的工具调用，让普通问题直接回答，'
+        '只有明确需要当前景区知识库、RAG 资料或课程知识库时才输出 tool。'
+        '\n不要自己演过渡过程。不要在 message 里写'
+        '"我来查一下""等等我核实一下""稍等我看看""马上好""我这就重新跑一下"这类描述动作的话。'
         '\n你只需要：'
-        '\n- 直接给出你当前最好的答案（闲聊时输出 finish）'
-        '\n- 如果非得调工具才能答，直接输出 tool，不要在 finish 里编查询过程'
+        '\n- 普通问题、写作、翻译、代码解释、常识问答、闲聊：直接输出 finish'
+        '\n- 当前景区资料相关问题：输出 tool'
         '\n\n输出格式只有两种：'
-        '\n1. 是闲聊: {"action": "finish", "message": "你的回复内容"}'
-        '\n2. 不是闲聊: {"action": "tool", "keyword": "提取的搜索关键词"}'
-        '\n\n什么是闲聊（输出 finish）：'
+        '\n1. 不需要检索: {"action": "finish", "message": "你的回复内容"}'
+        '\n2. 需要检索: {"action": "tool", "keyword": "提取的搜索关键词"}'
+        '\n\n什么情况输出 finish：'
         '\n- 打招呼：你好、hi、早上好'
         '\n- 情绪表达：我好开心、今天好累'
         '\n- 感谢道别：谢谢、再见、拜拜'
         '\n- 简单确认：好的、收到、明白了'
         '\n- 对你上一句话的回应：哈哈、对的、没错、说得好'
-        '\n\n什么不是闲聊（输出 tool）：'
-        '\n- 问任何具体事物/概念：XX是什么、你知道XX吗'
-        '\n- 要求查询/获取/阅读内容'
-        '\n- 提到任何产品名、项目名、专有名词'
-        '\n- 任何你需要查资料才能准确回答的问题'
-        '\n- 用户的问题涉及下方"可用工具"或"知识库主题"中的任何内容'
+        '\n- 普通百科、编程、写作、翻译、总结、改写、开放式建议'
+        '\n- 没有明确提到当前景区、景点、游览路线、讲解、门票、开放时间、景观参数、景点编号或知识库资料的问题'
+        '\n\n什么情况输出 tool：'
+        '\n- 明确询问当前景区/景点/游览路线/讲解重点/历史文化/自然风光/游客兴趣推荐'
+        '\n- 明确询问景点编号、景观参数、面积、坐标、位置、门票、开放时间、结构化数据集'
+        '\n- 明确要求查询、读取、依据已上传资料或知识库回答'
+        '\n- 用户的问题直接涉及下方"知识库主题"中的景区资料'
         '\n\nkeyword 提取规则：'
         '\n- keyword 必须是具体的搜索主题词，不能是"再查一下""详细说说"等动作描述'
         '\n- 如果用户消息是指代性的（如"再查一下""继续""详细说说"），从对话历史中找到实际话题作为 keyword'
-        '\n\n不确定时 → 输出 tool',
+        '\n\n不确定时 → 输出 finish',
         system_prompt,
         _format_context_section("关联记忆", memory_context),
         _format_context_section("可用工具", tool_names),
@@ -1071,11 +1072,11 @@ def _call_planner_llm(
                                 if message_start:
                                     _stream_message_text(message_start)
 
-                # 检测到 tool 模式 → 通过独立回调推送过渡语，减少用户等待
+                # 检测到 tool 模式后静默等待完整 JSON；不提前输出查询过渡语。
                 tool_compact_prefix = '{"action":"tool"'
                 if compact.startswith(tool_compact_prefix) and not in_message_mode and not tool_early_notified:
-                    tool_early_notified = True
                     if on_tool_detected:
+                        tool_early_notified = True
                         on_tool_detected()
                     # 不进入任何流式模式，后续 chunk 静默累积等完整 JSON
 
@@ -1896,6 +1897,43 @@ def check_memory_files(username=None):
     
     return memory_dir, is_complete
 
+
+def _attribute_text(attribute: Dict[str, Any], key: str, default: str = "") -> str:
+    value = attribute.get(key, default)
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text if text else default
+
+
+def _build_agent_scratch_data() -> Dict[str, str]:
+    config = cfg.config if isinstance(cfg.config, dict) else {}
+    attribute = config.get("attribute") if isinstance(config.get("attribute"), dict) else {}
+    return {
+        "first_name": _attribute_text(attribute, "name", "Fay"),
+        "last_name": "",
+        "age": _attribute_text(attribute, "age", "成年"),
+        "sex": _attribute_text(attribute, "gender", "女"),
+        "additional": _attribute_text(attribute, "additional", "友好、乐于助人"),
+        "birthplace": _attribute_text(attribute, "birth", ""),
+        "position": _attribute_text(attribute, "position", ""),
+        "zodiac": _attribute_text(attribute, "zodiac", ""),
+        "constellation": _attribute_text(attribute, "constellation", ""),
+        "contact": _attribute_text(attribute, "contact", ""),
+        "voice": _attribute_text(attribute, "voice", ""),
+        "goal": _attribute_text(attribute, "goal", ""),
+        "occupation": _attribute_text(attribute, "job", "助手"),
+        "current_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+def refresh_agent_scratch(agent):
+    if not hasattr(agent, 'scratch') or agent.scratch is None:
+        agent.scratch = {}
+    agent.scratch = _build_agent_scratch_data()
+    return agent
+
+
 def create_agent(username=None):
     """
     创建一个GenerativeAgent实例
@@ -1911,33 +1949,13 @@ def create_agent(username=None):
     # 创建/复用代理
     with agent_lock:
         if username in agents:
-            return agents[username]
+            return refresh_agent_scratch(agents[username])
         
         memory_dir, is_exist = check_memory_files(username)
         agent = GenerativeAgent(memory_dir)
         
-        # 检查是否有scratch属性，如果没有则添加
-        if not hasattr(agent, 'scratch'):
-            agent.scratch = {}
-        
-        # 初始化代理的scratch数据，始终从config_util实时加载
-        scratch_data = {
-            "first_name": cfg.config["attribute"]["name"],
-            "last_name": "",
-            "age": cfg.config["attribute"]["age"],
-            "sex": cfg.config["attribute"]["gender"],
-            "additional": cfg.config["attribute"]["additional"],
-            "birthplace": cfg.config["attribute"]["birth"],
-            "position": cfg.config["attribute"]["position"],
-            "zodiac": cfg.config["attribute"]["zodiac"],
-            "constellation": cfg.config["attribute"]["constellation"],
-            "contact": cfg.config["attribute"]["contact"],
-            "voice": cfg.config["attribute"]["voice"],  
-            "goal": cfg.config["attribute"]["goal"],
-            "occupation": cfg.config["attribute"]["job"],
-            "current_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        agent.scratch = scratch_data
+        # 始终从最新配置刷新当前数字人的人设，避免切换数字人后沿用旧缓存。
+        refresh_agent_scratch(agent)
         
         # 如果memory目录存在且不为空，则加载之前保存的记忆（不包括scratch数据）
         if is_exist:
@@ -2199,8 +2217,8 @@ def _auto_reply_after_execution(username, finished_exec_state):
         unverified = finished_exec_state.unverified_response or ""
 
         if unverified:
-            # 核实场景：之前已流式输出了一段未核实的回复+过渡语，现在基于工具结果纠正或确认
-            compact_system = f"""你是一个友好的助手。你刚才回答了用户的问题，然后告诉用户"等等，我再帮你核实一下…"，现在工具查到了真实资料。
+            # 核实场景：之前已流式输出了一段未核实的回复，现在基于工具结果纠正或确认
+            compact_system = f"""你是一个友好的助手。你刚才回答了用户的问题，现在工具查到了真实资料。
 
 规则（严格遵守）：
 1. 只输出给用户看的最终回复，不要输出分析过程、对比推理、决策逻辑
@@ -2216,9 +2234,8 @@ def _auto_reply_after_execution(username, finished_exec_state):
 {tool_context}
 """
         else:
-            # 正常工具调用场景：之前已告诉用户"我来帮你查一下，稍等…"
-            compact_system = f"""你是一个友好的助手。你已经告诉用户"我来帮你查一下，稍等…"，现在工具执行完毕。
-请基于以下工具执行结果回答用户，不要再重复"我来查一下"之类的过渡语，直接给出答案。
+            compact_system = f"""你是一个友好的助手。工具执行完毕。
+请基于以下工具执行结果直接回答用户，不要输出"我来查一下"之类的过渡语。
 ---
 **用户消息**: {user_request}
 **实际执行的操作**:
@@ -2251,8 +2268,8 @@ def _auto_reply_after_execution(username, finished_exec_state):
         think_content = "\n".join(think_parts)
         think_tag = f"<think>\n执行耗时: {elapsed}s，共 {len(finished_exec_state.tool_results)} 步\n{think_content}\n</think>\n"
 
-        # 流式写入原始会话流（计划消息已经作为 first sentence 发出，这里续接）
-        is_first = False  # first sentence 已由 question() 中的 plan_msg 发出
+        # 流式写入原始会话流。think 标签会被数字人层过滤，并把首句标记延迟到真实回答。
+        is_first = True
         accumulated = ""
         full_text = think_tag  # think 标签作为完整文本的开头
         punctuations = [",", ".", "!", "?", "\n", "\uff0c", "\u3002", "\uff01", "\uff1f"]
@@ -2518,14 +2535,6 @@ def question(content, username, observation=None, images=None):
             system_prompt += f"**用户画像**\n以下是通过历史对话分析得到的「{display_username}」的用户画像，可帮助你更好地理解用户：\n{user_portrait}\n\n"
     except Exception as exc:
         util.log(1, f"获取用户画像失败: {exc}")
-
-    # 注入 MCP Resources 上下文
-    try:
-        resource_text = mcp_runtime.get_all_resource_texts()
-        if resource_text:
-            system_prompt += f"**外部知识上下文**\n以下是通过 MCP 服务获取的参考信息，可帮助你了解自己掌握的知识范围并据此回答用户问题：\n{resource_text}\n\n"
-    except Exception as exc:
-        util.log(1, f"注入 MCP Resources 失败: {exc}")
 
     # 根据配置决定是否按用户隔离历史消息
     try:
@@ -3097,6 +3106,14 @@ def question(content, username, observation=None, images=None):
             finalize_stream(force_end=True)
         return _end_session_and_remember(full_response_text)
 
+    if select_initial_knowledge_tool(tool_registry, content, content) is None:
+        util.log(1, f"[大小模型] {username}: 未命中知识检索意图，跳过规划器直接回复")
+        if not sm.should_stop_generation(username, conversation_id=conversation_id):
+            run_direct_llm()
+        if not sm.should_stop_generation(username, conversation_id=conversation_id):
+            finalize_stream(force_end=True)
+        return _end_session_and_remember(full_response_text)
+
     # 提取知识库摘要给规划器（让它知道能查什么主题）
     knowledge_hint = ""
     try:
@@ -3143,10 +3160,8 @@ def question(content, username, observation=None, images=None):
                     break
 
     def _on_tool_detected() -> None:
-        """流式中检测到 tool action → 立即推送过渡语给用户"""
-        nonlocal is_first_sentence
-        write_sentence("我来帮你查一下，稍等…\n", force_first=is_first_sentence)
-        is_first_sentence = False
+        """流式中检测到 tool action 后保持静默，避免输出重复查询过渡语。"""
+        return
 
     try:
         first_decision = _call_planner_llm(
@@ -3174,9 +3189,7 @@ def question(content, username, observation=None, images=None):
         util.log(1, f"[大小模型] {username}: 需调用工具 {t_name}，提交后台执行")
 
         if show_plan_msg:
-            plan_msg = "我来帮你查一下，稍等…\n"
-            write_sentence(plan_msg, force_first=is_first_sentence)
-            is_first_sentence = False
+            util.log(1, f"[大小模型] {username}: 已进入工具流程，跳过查询过渡语")
 
         def _on_bg_complete(state):
             try:
@@ -3212,18 +3225,22 @@ def question(content, username, observation=None, images=None):
     if first_action == "tool":
         # 不是闲聊 → 走工具执行（规划器只做闲聊判断）
         already_notified = first_decision.get("_tool_early_streamed", False)
-        if "kb_search" in tool_registry:
-            # 知识问答场景：先用 kb_search 搜一次，后续步骤由大模型决定
-            search_query = (first_decision.get("keyword") or "").strip() or content.strip()
+        search_query = (first_decision.get("keyword") or "").strip() or content.strip()
+        initial_tool = select_initial_knowledge_tool(tool_registry, content, search_query)
+        if initial_tool:
+            args = {"query": search_query}
+            if initial_tool == "query_yueshen":
+                args["top_k"] = 3
             return _submit_tool_execution(
-                {"tool": "kb_search", "args": {"query": search_query}},
+                {"tool": initial_tool, "args": args},
                 show_plan_msg=not already_notified,
             )
-        # 无 kb_search（如纯 MCP 工具场景）→ 不硬塞首工具，交由大模型自行规划
-        return _submit_tool_execution(
-            {"tool": None, "args": {}},
-            show_plan_msg=not already_notified,
-        )
+        util.log(1, f"[大小模型] {username}: 未命中知识库检索意图，直接由 LLM 回复")
+        if not sm.should_stop_generation(username, conversation_id=conversation_id):
+            run_direct_llm()
+        if not sm.should_stop_generation(username, conversation_id=conversation_id):
+            finalize_stream(force_end=True)
+        return _end_session_and_remember(full_response_text)
 
     else:
         # 闲聊 — 内容已通过 stream_callback 流式输出
@@ -3235,7 +3252,9 @@ def question(content, username, observation=None, images=None):
         # 条件：有任何可用工具 + finish 内容超过 80 字 + 用户消息非纯语气词（>3字）
         has_tools = bool(tool_registry)
         user_msg_stripped = content.strip()
+        verify_tool = select_initial_knowledge_tool(tool_registry, content, content)
         need_verify = (has_tools
+                       and bool(verify_tool)
                        and len(finish_msg) > 80
                        and len(user_msg_stripped) > 3)
         if need_verify:
@@ -3244,12 +3263,11 @@ def question(content, username, observation=None, images=None):
                 write_sentence(accumulated_text, force_first=is_first_sentence)
                 is_first_sentence = False
                 accumulated_text = ""
-            verify_msg = "\n\n等等，我再帮你核实一下…\n\n---\n"
-            write_sentence(verify_msg)
-            full_response_text += verify_msg
-            # 不硬编码工具，交由大模型基于 unverified_response 自行选择核实工具
+            verify_args = {"query": user_msg_stripped}
+            if verify_tool == "query_yueshen":
+                verify_args["top_k"] = 3
             return _submit_tool_execution(
-                {"tool": None, "args": {}},
+                {"tool": verify_tool, "args": verify_args},
                 show_plan_msg=False,
                 unverified_response=finish_msg,
             )

@@ -631,7 +631,11 @@ async def list_tools() -> List[Tool]:
         ),
         Tool(
             name="query_yueshen",
-            description="Vector search in YueShen KB",
+            description=(
+                "【RAG检索】从上传到 library 的原始文档/结构化数据集中做向量检索。"
+                "适合查询景点编号、点位位置、景观参数、面积、开放时间、门票、表格字段等事实细节；"
+                "当问题包含 NH-001 这类编号或“参数/位置/数据集/结构化”等词时应优先调用。"
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {

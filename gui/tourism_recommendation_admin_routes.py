@@ -98,6 +98,8 @@ def _register_stop_routes(app):
         return ok(id=service().upsert_route_stop(
             template_id, data.get('attraction_id'), data.get('order_index', 0),
             data.get('stay_minutes', 30), id=data.get('id'), note=data.get('note', ''),
+            node_name=data.get('node_name', ''), node_type=data.get('node_type', 'attraction'),
+            enabled=data.get('enabled', True),
         ))
 
 

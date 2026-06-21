@@ -1,4 +1,5 @@
 import { ElMessage } from 'element-plus';
+import { BRAND_SERVICE_NAME } from '../config/brand';
 import type { AudioConfig } from '../utils/audioControls';
 
 interface AudioControlStore {
@@ -19,7 +20,7 @@ export function useAudioControlActions(appStore: AudioControlStore) {
     try {
       await appStore.startLive();
     } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : '启动 Fay 服务失败');
+      ElMessage.error(error instanceof Error ? error.message : `启动 ${BRAND_SERVICE_NAME} 失败`);
     }
   }
 

@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, RefreshCw, RotateCcw, Trash2 } from '@lucide/vue';
-import { createUser, deleteUserById, getAuditLogs, getUsers, resetUserPassword, updateUser } from '../api/users';
-import type { AuditLogRecord, AuthRole, ManagedUser } from '../types/auth';
+import { History, Plus, RefreshCw, RotateCcw, Trash2 } from '@lucide/vue';
+import AuditLogDrawer from '../components/users/AuditLogDrawer.vue';
+import { createUser, deleteUserById, getUsers, resetUserPassword, updateUser } from '../api/users';
+import type { AuthRole, ManagedUser } from '../types/auth';
+import { DEFAULT_USER_AVATAR_SRC } from '../utils/assets';
 
-const DEFAULT_USER_AVATAR = '/static/images/User_send.png';
+const DEFAULT_USER_AVATAR = DEFAULT_USER_AVATAR_SRC;
 const RECENT_LOGIN_SECONDS = 7 * 24 * 60 * 60;
 
 const loading = ref(false);
 const users = ref<ManagedUser[]>([]);
-const auditLogs = ref<AuditLogRecord[]>([]);
+const auditDrawerRef = ref<InstanceType<typeof AuditLogDrawer> | null>(null);
 const createVisible = ref(false);
 const createForm = reactive({ username: '', password: '', role: 'user' as AuthRole, email: '' });
 
@@ -30,30 +32,6 @@ function avatarFor(path?: string) {
   return path || DEFAULT_USER_AVATAR;
 }
 
-function actionLabel(action: string) {
-  const labels: Record<string, string> = {
-    avatar_update: '更新头像',
-    login_failed: '登录失败',
-    login_success: '登录成功',
-    logout: '退出登录',
-    password_change: '修改密码',
-    password_reset: '重置密码',
-    register: '用户注册',
-    user_create: '创建用户',
-    user_delete: '删除用户',
-    user_update: '更新用户',
-  };
-  return labels[action] || action;
-}
-
-function formatDetails(details?: Record<string, unknown>) {
-  if (!details || Object.keys(details).length === 0) return '-';
-  return Object.entries(details).map(([key, value]) => {
-    const formatted = typeof value === 'object' ? JSON.stringify(value) : String(value);
-    return `${key}: ${formatted}`;
-  }).join('，');
-}
-
 async function loadUsers() {
   loading.value = true;
   try {
@@ -64,9 +42,12 @@ async function loadUsers() {
   }
 }
 
-async function loadAuditLogs() {
-  const result = await getAuditLogs('', 20);
-  auditLogs.value = result.list || [];
+function refreshAuditDrawer() {
+  auditDrawerRef.value?.refreshIfOpen();
+}
+
+function openAuditDrawer() {
+  auditDrawerRef.value?.open();
 }
 
 async function handleCreateUser() {
@@ -81,19 +62,22 @@ async function handleCreateUser() {
   createForm.password = '';
   createForm.role = 'user';
   createForm.email = '';
-  await Promise.all([loadUsers(), loadAuditLogs()]);
+  await loadUsers();
+  refreshAuditDrawer();
 }
 
 async function changeRole(user: ManagedUser, role: AuthRole) {
   await updateUser(user.uid, { role });
   ElMessage.success('角色已更新');
   await loadUsers();
+  refreshAuditDrawer();
 }
 
 async function toggleActive(user: ManagedUser, isActive: boolean) {
   await updateUser(user.uid, { is_active: isActive });
   ElMessage.success(isActive ? '用户已启用' : '用户已禁用');
   await loadUsers();
+  refreshAuditDrawer();
 }
 
 async function resetPassword(user: ManagedUser) {
@@ -103,18 +87,19 @@ async function resetPassword(user: ManagedUser) {
   });
   await resetUserPassword(user.uid, value);
   ElMessage.success('密码已重置');
-  await loadAuditLogs();
+  refreshAuditDrawer();
 }
 
 async function removeUser(user: ManagedUser) {
   await ElMessageBox.confirm(`确认删除用户 ${user.username}？`, '删除用户', { type: 'warning' });
   await deleteUserById(user.uid);
   ElMessage.success('用户已删除');
-  await Promise.all([loadUsers(), loadAuditLogs()]);
+  await loadUsers();
+  refreshAuditDrawer();
 }
 
 onMounted(() => {
-  Promise.all([loadUsers(), loadAuditLogs()]).catch(() => undefined);
+  loadUsers().catch(() => undefined);
 });
 </script>
 
@@ -127,6 +112,7 @@ onMounted(() => {
       </div>
       <div class="header-actions">
         <el-button :icon="RefreshCw" :loading="loading" @click="loadUsers">刷新</el-button>
+        <el-button :icon="History" @click="openAuditDrawer">审核日志</el-button>
         <el-button :icon="Plus" type="primary" @click="createVisible = true">新建用户</el-button>
       </div>
     </div>
@@ -192,27 +178,7 @@ onMounted(() => {
       </el-table-column>
     </el-table>
 
-    <section class="audit-list" aria-label="最近审计">
-      <div class="audit-list-header">
-        <div>
-          <h3>最近审计</h3>
-          <p>展示登录、用户变更、密码和头像相关操作</p>
-        </div>
-        <el-button size="small" :icon="RefreshCw" @click="loadAuditLogs">刷新审计</el-button>
-      </div>
-      <div v-if="auditLogs.length === 0" class="audit-empty">暂无审计记录</div>
-      <div v-for="log in auditLogs" :key="log.id" class="audit-item">
-        <span class="audit-action">{{ actionLabel(log.action) }}</span>
-        <div class="audit-main">
-          <strong>{{ log.username || '系统' }}</strong>
-          <span>{{ formatDetails(log.details) }}</span>
-          <small>{{ log.resource || '-' }} · {{ log.ip_address || '-' }}</small>
-        </div>
-        <time>{{ formatTime(log.timestamp) }}</time>
-      </div>
-    </section>
-
-    <el-dialog v-model="createVisible" title="新建用户" width="460px">
+    <el-dialog v-model="createVisible" title="新建用户" width="460px" append-to-body>
       <el-form label-position="top">
         <el-form-item label="用户名"><el-input v-model="createForm.username" /></el-form-item>
         <el-form-item label="密码"><el-input v-model="createForm.password" type="password" show-password /></el-form-item>
@@ -229,5 +195,7 @@ onMounted(() => {
         <el-button type="primary" @click="handleCreateUser">创建</el-button>
       </template>
     </el-dialog>
+
+    <AuditLogDrawer ref="auditDrawerRef" />
   </section>
 </template>

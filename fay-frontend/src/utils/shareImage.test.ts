@@ -5,6 +5,7 @@ import {
   exportElementAsImage,
   loadHtml2Canvas,
 } from './shareImage';
+import { HTML2CANVAS_SCRIPT_SRC } from './assets';
 
 class FakeElement {
   public async = false;
@@ -59,8 +60,8 @@ function installFakeDom() {
     createElement: (tagName: string) => new FakeElement(tagName),
     querySelector: (selector: string) => {
       const elements = [...head.children, ...body.children];
-      if (selector === 'script[src="/static/js/html2canvas.min.js"]') {
-        return elements.find((element) => element.tagName === 'script' && element.src === '/static/js/html2canvas.min.js') || null;
+      if (selector === `script[src="${HTML2CANVAS_SCRIPT_SRC}"]`) {
+        return elements.find((element) => element.tagName === 'script' && element.src === HTML2CANVAS_SCRIPT_SRC) || null;
       }
       const download = selector.match(/^a\[download="(.+)"\]$/)?.[1];
       if (download) {
@@ -93,12 +94,12 @@ describe('shareImage', () => {
     (window as any).html2canvas = html2canvas;
 
     await expect(loadHtml2Canvas()).resolves.toBe(html2canvas);
-    expect(document.querySelector('script[src="/static/js/html2canvas.min.js"]')).toBeNull();
+    expect(document.querySelector(`script[src="${HTML2CANVAS_SCRIPT_SRC}"]`)).toBeNull();
   });
 
   it('injects html2canvas script when the global function is missing', async () => {
     const promise = loadHtml2Canvas();
-    const script = document.querySelector('script[src="/static/js/html2canvas.min.js"]') as HTMLScriptElement;
+    const script = document.querySelector(`script[src="${HTML2CANVAS_SCRIPT_SRC}"]`) as HTMLScriptElement;
 
     expect(script).not.toBeNull();
     (window as any).html2canvas = vi.fn();

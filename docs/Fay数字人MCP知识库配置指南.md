@@ -91,7 +91,7 @@ http://127.0.0.1:5010/Page3
 
 ```json
 {
-    "YUESHEN_CORPUS_DIR": "新知识库",
+    "YUESHEN_CORPUS_DIR": "library",
     "YUESHEN_PERSIST_DIR": "cache_data/chromadb_yueshen",
     "YUESHEN_AUTO_INGEST": "1",
     "YUESHEN_AUTO_INTERVAL": "300",
@@ -105,7 +105,7 @@ http://127.0.0.1:5010/Page3
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `YUESHEN_CORPUS_DIR` | 知识库文档目录 | `新知识库` |
+| `YUESHEN_CORPUS_DIR` | 知识库文档目录 | `library` |
 | `YUESHEN_PERSIST_DIR` | 向量数据库存储路径 | `cache_data/chromadb_yueshen` |
 | `YUESHEN_AUTO_INGEST` | 是否自动索引新文档 | `1`（启用） |
 | `YUESHEN_AUTO_INTERVAL` | 自动索引检查间隔（秒） | `300` |

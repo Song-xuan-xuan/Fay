@@ -40,6 +40,8 @@ SCHEMA_STATEMENTS = (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         template_id INTEGER NOT NULL,
         attraction_id INTEGER NOT NULL,
+        node_name TEXT DEFAULT '',
+        node_type TEXT DEFAULT 'attraction',
         order_index INTEGER DEFAULT 0,
         stay_minutes INTEGER DEFAULT 30,
         note TEXT DEFAULT '',
@@ -116,6 +118,11 @@ SCHEMA_STATEMENTS = (
     'CREATE INDEX IF NOT EXISTS idx_recommendation_log_user ON recommendation_log(user_id, created_at)',
 )
 
+ROUTE_STOP_MIGRATIONS = (
+    "ALTER TABLE recommendation_route_stop ADD COLUMN node_name TEXT DEFAULT ''",
+    "ALTER TABLE recommendation_route_stop ADD COLUMN node_type TEXT DEFAULT 'attraction'",
+)
+
 
 def connect(db_path):
     folder = os.path.dirname(db_path)
@@ -131,6 +138,12 @@ def ensure_schema(db_path):
     try:
         for statement in SCHEMA_STATEMENTS:
             conn.execute(statement)
+        for statement in ROUTE_STOP_MIGRATIONS:
+            try:
+                conn.execute(statement)
+            except sqlite3.OperationalError as error:
+                if 'duplicate column name' not in str(error).lower():
+                    raise
         conn.commit()
     finally:
         conn.close()

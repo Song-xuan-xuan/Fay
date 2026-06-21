@@ -139,6 +139,11 @@ function formatScore(route: RecommendationRoute | null) {
   return route ? Math.round(route.score * 100) : 0;
 }
 
+function nodeLabel(stop: RecommendationRoute['stops'][number]) {
+  const labels: Record<string, string> = { start: '起点', end: '终点', path: '路径节点', draft: '待确认' };
+  return labels[stop.node_type || ''] || '';
+}
+
 onMounted(loadInitialData);
 </script>
 
@@ -220,11 +225,15 @@ onMounted(loadInitialData);
             <el-alert v-for="risk in activeRoute.risks" :key="risk" type="warning" show-icon :closable="false" :title="risk" />
             <el-timeline class="route-timeline">
               <el-timeline-item v-for="stop in activeRoute.stops" :key="stop.id" :timestamp="`${stop.start_time} - ${stop.end_time}`">
-                <div class="route-stop">
-                  <strong>{{ stop.name }}</strong>
-                  <span>{{ stop.category }} · 停留 {{ stop.stay_minutes }} 分钟 · 步行 {{ stop.walk_minutes }} 分钟</span>
-                  <p>{{ stop.explanation_focus }}</p>
-                  <blockquote>{{ stop.script }}</blockquote>
+                <div class="route-stop" :class="{ 'route-stop-node': stop.score_eligible === false }">
+                  <strong>
+                    <span>{{ stop.name }}</span>
+                    <em v-if="nodeLabel(stop)">{{ nodeLabel(stop) }}</em>
+                  </strong>
+                  <span v-if="stop.score_eligible !== false">{{ stop.category }} · 停留 {{ stop.stay_minutes }} 分钟 · 步行 {{ stop.walk_minutes }} 分钟</span>
+                  <span v-else>{{ stop.category }}<template v-if="stop.stay_minutes"> · 停留 {{ stop.stay_minutes }} 分钟</template></span>
+                  <p v-if="stop.explanation_focus">{{ stop.explanation_focus }}</p>
+                  <blockquote v-if="stop.script">{{ stop.script }}</blockquote>
                 </div>
               </el-timeline-item>
             </el-timeline>
