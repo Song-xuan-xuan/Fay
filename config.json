@@ -1,6 +1,6 @@
 {
     "attribute": {
-        "additional": "Live2D 模型：Haru",
+        "additional": "Live2D 模型：Hibiki（hibiki）",
         "age": "",
         "birth": "",
         "constellation": "",
@@ -9,9 +9,9 @@
         "goal": "互动展示",
         "hobby": "发呆",
         "job": "",
-        "name": "Haru",
+        "name": "Hibiki",
         "position": "数字人",
-        "voice": "zh-CN-liaoning-XiaobeiNeural",
+        "voice": "zh-CN-XiaoxiaoNeural",
         "zodiac": ""
     },
     "auth": {
@@ -21,35 +21,11 @@
         "jwt_expiration_hours": 168
     },
     "digital_humans": {
-        "active_id": "live2d_haru",
+        "active_id": "live2d_hibiki",
         "items": [
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
-                "enabled": true,
-                "id": "fay_default",
-                "name": "Fay",
-                "persona": {
-                    "additional": "发呆",
-                    "age": "成年",
-                    "birth": "Github",
-                    "constellation": "水瓶座",
-                    "contact": "qq467665317",
-                    "gender": "男",
-                    "goal": "工作协助",
-                    "job": "助理",
-                    "position": "陪伴",
-                    "zodiac": "蛇"
-                },
-                "render_url": "http://127.0.0.1:5174",
-                "tags": [],
-                "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
-                "voice": "zh-CN-YunxiNeural"
-            },
-            {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612161741081.png",
-                "created_at": "2026-06-21T11:00:00",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_haru",
                 "model_name": "Haru",
@@ -72,12 +48,12 @@
                     "Haru"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-CN-liaoning-XiaobeiNeural"
             },
             {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612163007942.png",
-                "created_at": "2026-06-21T11:00:00",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_hiyori",
                 "model_name": "Hiyori",
@@ -100,12 +76,12 @@
                     "Hiyori"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-CN-shaanxi-XiaoniNeural"
             },
             {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612163033340.png",
-                "created_at": "2026-06-21T11:00:00",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_mao",
                 "model_name": "Mao",
@@ -128,12 +104,12 @@
                     "Mao"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-TW-HsiaoYuNeural"
             },
             {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612163109131.png",
-                "created_at": "2026-06-21T11:00:00",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_natori",
                 "model_name": "Natori",
@@ -156,12 +132,12 @@
                     "Natori"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-TW-YunJheNeural"
             },
             {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612163134565.png",
-                "created_at": "2026-06-21T11:00:00",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_mark",
                 "model_name": "Mark",
@@ -184,12 +160,12 @@
                     "Mark"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-HK-WanLungNeural"
             },
             {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612163320669.png",
-                "created_at": "2026-06-21T11:00:00",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_rice",
                 "model_name": "Rice",
@@ -212,12 +188,12 @@
                     "Rice"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-CN-shaanxi-XiaoniNeural"
             },
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
+                "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260621163438975.png",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_miku_sample_t04",
                 "model_name": "miku_sample_t04",
@@ -241,12 +217,12 @@
                     "miku_sample_t04"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": ""
             },
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
+                "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260621163513395.png",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_chitose",
                 "model_name": "chitose",
@@ -269,12 +245,12 @@
                     "chitose"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": ""
             },
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
+                "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260621163526474.png",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_epsilon",
                 "model_name": "Epsilon",
@@ -297,12 +273,12 @@
                     "Epsilon"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": ""
             },
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
+                "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260621163838021.png",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_hibiki",
                 "model_name": "hibiki",
@@ -325,12 +301,12 @@
                     "hibiki"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": "zh-CN-XiaoxiaoNeural"
             },
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
+                "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260621163626076.png",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_izumi_illust",
                 "model_name": "izumi_illust",
@@ -353,40 +329,12 @@
                     "izumi_illust"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": ""
             },
             {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
-                "enabled": true,
-                "id": "live2d_kei_basic_free",
-                "model_name": "kei_basic_free",
-                "name": "Kei Basic",
-                "persona": {
-                    "additional": "Live2D 模型：Kei Basic（kei_basic_free）",
-                    "age": "",
-                    "birth": "",
-                    "constellation": "",
-                    "contact": "",
-                    "gender": "",
-                    "goal": "互动展示",
-                    "job": "",
-                    "position": "数字人",
-                    "zodiac": ""
-                },
-                "render_url": "http://127.0.0.1:5174?model=kei_basic_free",
-                "tags": [
-                    "Live2D",
-                    "kei_basic_free"
-                ],
-                "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
-                "voice": "zh-CN-XiaoyiNeural"
-            },
-            {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
+                "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260621163614182.png",
+                "created_at": "2026-06-24T22:23:17",
                 "enabled": true,
                 "id": "live2d_kei_vowels_pro",
                 "model_name": "kei_vowels_pro",
@@ -409,35 +357,7 @@
                     "kei_vowels_pro"
                 ],
                 "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
-                "voice": ""
-            },
-            {
-                "cover_url": "/frontend-static/images/digital-human-default.gif",
-                "created_at": "2026-06-21T11:00:00",
-                "enabled": true,
-                "id": "live2d_miara_pro_t04",
-                "model_name": "miara_pro_t04",
-                "name": "Miara",
-                "persona": {
-                    "additional": "Live2D 模型：Miara（miara_pro_t04）",
-                    "age": "",
-                    "birth": "",
-                    "constellation": "",
-                    "contact": "",
-                    "gender": "",
-                    "goal": "互动展示",
-                    "job": "",
-                    "position": "数字人",
-                    "zodiac": ""
-                },
-                "render_url": "http://127.0.0.1:5174?model=miara_pro_t04",
-                "tags": [
-                    "Live2D",
-                    "miara_pro_t04"
-                ],
-                "type": "live2d",
-                "updated_at": "2026-06-21T11:00:00",
+                "updated_at": "2026-06-24T22:23:17",
                 "voice": ""
             }
         ]
@@ -457,6 +377,10 @@
     },
     "items": [],
     "live2d": {
+        "ignored_models": [
+            "kei_basic_free",
+            "miara_pro_t04"
+        ],
         "render_base_url": "http://127.0.0.1:5174",
         "samples_root": "library/live2d/Samples"
     },

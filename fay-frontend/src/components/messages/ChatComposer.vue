@@ -142,16 +142,25 @@ onUnmounted(() => {
       :icon="AudioLines"
       :loading="voiceTranscribing"
       :disabled="voiceTranscribing || (!canVoiceInput && !voiceRecording)"
-      :aria-label="voiceRecording ? '停止语音输入并发送' : '语音输入'"
+      :aria-label="voiceRecording ? '停止手动语音输入并发送' : '手动语音发送'"
+      title="手动语音发送：停止录音后才识别并发送"
       @click="emit('toggle-voice-input')"
-    />
+    >
+      {{ voiceTranscribing ? '识别中' : voiceRecording ? '停止录音' : '语音发送' }}
+    </el-button>
     <el-button type="primary" :icon="Send" :disabled="!canSend && imagePreviews.length === 0" @click="emit('submit')">发送</el-button>
     <div v-if="showManagementControls" class="composer-controls">
       <el-button
+        class="realtime-listen-button"
+        :class="{ listening: micEnabled }"
+        :type="micEnabled ? 'warning' : 'default'"
         :icon="micEnabled ? Mic : MicOff"
-        :aria-label="micEnabled ? '关闭麦克风' : '开启麦克风'"
+        :aria-label="micEnabled ? '关闭实时监听和唤醒词检测' : '开启实时监听和唤醒词检测'"
+        :title="micEnabled ? '实时监听会持续检测唤醒词' : '实时监听关闭后只保留手动语音发送'"
         @click="emit('toggle-mic')"
-      />
+      >
+        {{ micEnabled ? '实时监听中' : '实时监听关' }}
+      </el-button>
       <el-button
         v-if="liveState === 1"
         :icon="speakerEnabled ? Volume2 : VolumeX"
@@ -166,13 +175,16 @@ onUnmounted(() => {
 <style scoped>
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
   align-items: end;
   gap: 8px;
 }
 
 .composer-controls {
   display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -183,9 +195,31 @@ onUnmounted(() => {
 }
 
 .voice-input-button {
-  min-width: 44px;
+  min-width: 96px;
   min-height: 40px;
   margin-left: 0;
+}
+
+.realtime-listen-button {
+  min-width: 118px;
+}
+
+.realtime-listen-button.listening {
+  border-color: #d97706;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+@media (max-width: 760px) {
+  .composer {
+    grid-template-columns: 1fr;
+  }
+
+  .voice-input-button,
+  .composer-controls,
+  .composer-controls :deep(.el-button) {
+    width: 100%;
+  }
 }
 
 /* 图片预览区域 */

@@ -7,7 +7,6 @@ import type { MessageRecord } from '../types';
 import { useAppStore } from '../stores/app';
 import { useAuthStore } from '../stores/auth';
 import ChatComposer from '../components/messages/ChatComposer.vue';
-import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
 import MessageList from '../components/messages/MessageList.vue';
 import SessionPanel from '../components/messages/SessionPanel.vue';
 import SharePreviewDialog from '../components/messages/SharePreviewDialog.vue';
@@ -204,76 +203,77 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="page-grid page-grid-message">
-    <SessionPanel
-      :sessions="appStore.sessions"
-      :selected-session="appStore.selectedSession"
-      :loading="sessionLoading"
-      @select="selectSession"
-      @create="createSession"
-      @rename="renameSession"
-      @remove="removeSession"
-    />
+  <section class="immersive-message-stage">
+    <div class="conversation-zone">
+      <SessionPanel
+        :sessions="appStore.sessions"
+        :selected-session="appStore.selectedSession"
+        :loading="sessionLoading"
+        @select="selectSession"
+        @create="createSession"
+        @rename="renameSession"
+        @remove="removeSession"
+      />
 
-    <section class="panel chat-panel">
-      <div class="panel-header">
-        <div>
-          <h2>{{ selectedUsername === 'User' ? '主人' : selectedUsername }}</h2>
-          <p>{{ appStore.panelMsg || appStore.selectedSession?.title || '等待新的对话消息' }}</p>
+      <section class="panel chat-panel conversation-glass">
+        <div class="panel-header">
+          <div>
+            <h2>{{ selectedUsername === 'User' ? '主人' : selectedUsername }}</h2>
+            <p>{{ appStore.panelMsg || appStore.selectedSession?.title || '等待新的对话消息' }}</p>
+          </div>
+          <el-button :icon="ImageIcon" :disabled="messages.length === 0" @click="enterShareSelectMode">分享图</el-button>
         </div>
-        <el-button :icon="ImageIcon" :disabled="messages.length === 0" @click="enterShareSelectMode">分享图</el-button>
-      </div>
 
-      <ShareToolbar
-        v-if="shareSelectMode"
-        :selected-count="shareSelectedMessages.length"
-        @select-all="messages = selectAllShareMessages(messages)"
-        @clear="messages = clearShareSelection(messages)"
-        @preview="previewShareImage"
-        @exit="exitShareSelectMode"
-      />
+        <ShareToolbar
+          v-if="shareSelectMode"
+          :selected-count="shareSelectedMessages.length"
+          @select-all="messages = selectAllShareMessages(messages)"
+          @clear="messages = clearShareSelection(messages)"
+          @preview="previewShareImage"
+          @exit="exitShareSelectMode"
+        />
 
-      <MessageList
-        ref="messageList"
-        :messages="messages"
-        :loading="loading"
-        :has-more="hasMore"
-        :share-select-mode="shareSelectMode"
-        :render-version="renderVersion"
-        :user-avatar="selectedUserAvatar"
-        @load-more="loadMessages(false)"
-        @toggle-share="toggleShareSelect"
-        @toggle-think="toggleThink"
-        @toggle-prestart="togglePrestart"
-        @content-click="openLocalImage"
-      />
+        <MessageList
+          ref="messageList"
+          :messages="messages"
+          :loading="loading"
+          :has-more="hasMore"
+          :share-select-mode="shareSelectMode"
+          :render-version="renderVersion"
+          :user-avatar="selectedUserAvatar"
+          @load-more="loadMessages(false)"
+          @toggle-share="toggleShareSelect"
+          @toggle-think="toggleThink"
+          @toggle-prestart="togglePrestart"
+          @content-click="openLocalImage"
+        />
 
-      <ChatComposer
-        ref="chatComposer"
-        v-model="newMessage"
-        :can-send="canSend"
-        :live-state="appStore.liveState" :mic-enabled="appStore.audioConfig.mic" :speaker-enabled="appStore.audioConfig.speaker"
-        :show-management-controls="canControlService"
-        :can-voice-input="canVoiceInput"
-        :voice-recording="voiceInput.isRecording.value"
-        :voice-transcribing="voiceInput.isTranscribing.value"
-        @submit="submitMessage" @toggle-mic="audioActions.toggleMic"
-        @toggle-voice-input="voiceInput.toggleRecording"
-        @toggle-speaker="audioActions.toggleSpeaker" @start-live="audioActions.startLiveFromComposer"
-        @images-change="handleImagesChange"
-      />
+        <ChatComposer
+          ref="chatComposer"
+          v-model="newMessage"
+          :can-send="canSend"
+          :live-state="appStore.liveState" :mic-enabled="appStore.audioConfig.mic" :speaker-enabled="appStore.audioConfig.speaker"
+          :show-management-controls="canControlService"
+          :can-voice-input="canVoiceInput"
+          :voice-recording="voiceInput.isRecording.value"
+          :voice-transcribing="voiceInput.isTranscribing.value"
+          @submit="submitMessage" @toggle-mic="audioActions.toggleMic"
+          @toggle-voice-input="voiceInput.toggleRecording"
+          @toggle-speaker="audioActions.toggleSpeaker" @start-live="audioActions.startLiveFromComposer"
+          @images-change="handleImagesChange"
+        />
 
-      <SharePreviewDialog
-        ref="sharePreviewDialog"
-        v-model:visible="sharePreviewVisible"
-        :messages="shareSelectedMessages"
-        :username="selectedUsername"
-        :exporting="shareExporting"
-        :render-version="renderVersion"
-        @download="downloadShareImage"
-      />
-    </section>
+        <SharePreviewDialog
+          ref="sharePreviewDialog"
+          v-model:visible="sharePreviewVisible"
+          :messages="shareSelectedMessages"
+          :username="selectedUsername"
+          :exporting="shareExporting"
+          :render-version="renderVersion"
+          @download="downloadShareImage"
+        />
+      </section>
+    </div>
 
-    <DigitalHumanPanel view-context="message" />
   </section>
 </template>

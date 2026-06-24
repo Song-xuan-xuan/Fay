@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, RefreshCw } from '@lucide/vue';
+import BackgroundManager from '../components/backgrounds/BackgroundManager.vue';
 import McpServerDetail from '../components/mcp/McpServerDetail.vue';
 import McpServerDialog from '../components/mcp/McpServerDialog.vue';
 import McpServerList from '../components/mcp/McpServerList.vue';
@@ -233,6 +234,8 @@ onMounted(() => {
         <el-button :icon="Plus" type="primary" @click="openCreateDialog">添加</el-button>
       </div>
     </div>
+
+    <BackgroundManager class="mcp-background-manager" />
 
     <div class="mcp-layout">
       <McpServerList

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus';
 import { ref } from 'vue';
-import { Clipboard, Database, Download, HelpCircle, Pencil, Plus, RefreshCw, Settings, Trash2, Upload } from '@lucide/vue';
+import { RouterLink, useRoute } from 'vue-router';
+import { Clipboard, Database, Download, HelpCircle, Pencil, Plus, RefreshCw, Route as RouteIcon, Settings, Trash2, Upload } from '@lucide/vue';
 import RouteWorkbench from '../components/recommendation/RouteWorkbench.vue';
 import { exampleImportJson } from '../config/recommendationImportExample';
 import { useRecommendationManage } from '../composables/useRecommendationManage';
 
+const route = useRoute();
 const {
   activeTab, attractionForm, attractionOptions, attractions, edgeForm, edges, fileInput, handleAttractionFile,
   handleCreateAttraction, handleCreateMaterial, handleCreateStop, handleCreateTemplate,
@@ -19,6 +21,13 @@ const {
 } = useRecommendationManage();
 
 const importTutorialVisible = ref(false);
+
+function isRecommendationPageActive(path: string) {
+  if (path === '/recommendation') {
+    return route.path === path;
+  }
+  return route.path === path || route.path.startsWith(`${path}/`);
+}
 
 async function handleCopyExampleJson() {
   try {
@@ -42,6 +51,25 @@ async function handleCopyExampleJson() {
         <el-button :icon="Database" @click="handleInitialize">从看板初始化</el-button>
       </div>
     </div>
+
+    <nav class="recommendation-page-tabs" aria-label="推荐功能导航">
+      <RouterLink
+        to="/recommendation"
+        class="recommendation-page-tab"
+        :class="{ 'is-active': isRecommendationPageActive('/recommendation') }"
+      >
+        <RouteIcon :size="16" aria-hidden="true" />
+        <span>路线推荐</span>
+      </RouterLink>
+      <RouterLink
+        to="/recommendation/manage"
+        class="recommendation-page-tab"
+        :class="{ 'is-active': isRecommendationPageActive('/recommendation/manage') }"
+      >
+        <Settings :size="16" aria-hidden="true" />
+        <span>维护推荐</span>
+      </RouterLink>
+    </nav>
 
     <el-tabs v-model="activeTab" class="dashboard-tabs">
       <el-tab-pane label="景点资料库" name="attractions">

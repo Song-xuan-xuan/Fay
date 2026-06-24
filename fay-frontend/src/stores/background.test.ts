@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useBackgroundStore } from './background';
+import { getBackgrounds } from '../api/backgrounds';
+
+vi.mock('../api/backgrounds', () => ({
+  getBackgrounds: vi.fn(),
+}));
 
 const storage = new Map<string, string>();
 
@@ -16,6 +21,7 @@ function installLocalStorage() {
 describe('background store', () => {
   beforeEach(() => {
     installLocalStorage();
+    vi.mocked(getBackgrounds).mockReset();
     setActivePinia(createPinia());
   });
 
@@ -49,5 +55,48 @@ describe('background store', () => {
     const store = useBackgroundStore();
 
     expect(store.activeBackgroundUrl).toBe('https://example.com/restored.jpg');
+  });
+
+  it('loads uploaded backgrounds and uses the server active background by default', async () => {
+    vi.mocked(getBackgrounds).mockResolvedValue({
+      success: true,
+      active_id: 'bg_1',
+      active: { id: 'bg_1', name: '大厅背景', url: '/backgrounds/lobby.png' },
+      items: [
+        { id: 'default', name: '默认背景', url: '/frontend-static/images/digital-human-default.gif', builtin: true },
+        { id: 'bg_1', name: '大厅背景', url: '/backgrounds/lobby.png' },
+      ],
+    });
+    const store = useBackgroundStore();
+
+    await store.loadBackgrounds();
+
+    expect(store.backgrounds).toHaveLength(2);
+    expect(store.activeBackgroundUrl).toBe('/backgrounds/lobby.png');
+    expect(store.activeBackgroundName).toBe('大厅背景');
+  });
+
+  it('selects an uploaded background locally without losing the manual URL', async () => {
+    vi.mocked(getBackgrounds).mockResolvedValue({
+      success: true,
+      active_id: 'default',
+      active: { id: 'default', name: '默认背景', url: '/frontend-static/images/digital-human-default.gif', builtin: true },
+      items: [
+        { id: 'default', name: '默认背景', url: '/frontend-static/images/digital-human-default.gif', builtin: true },
+        { id: 'bg_1', name: '大厅背景', url: '/backgrounds/lobby.png' },
+      ],
+    });
+    const store = useBackgroundStore();
+    store.setManualBackground('https://example.com/manual.jpg');
+    await store.loadBackgrounds();
+
+    store.selectBackground('bg_1');
+
+    expect(store.activeBackgroundUrl).toBe('/backgrounds/lobby.png');
+    expect(store.manualUrl).toBe('https://example.com/manual.jpg');
+    expect(localStorage.setItem).toHaveBeenLastCalledWith(
+      'fay_background_state',
+      expect.stringContaining('bg_1'),
+    );
   });
 });

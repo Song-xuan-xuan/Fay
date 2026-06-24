@@ -1,8 +1,54 @@
 @media (max-width: 1180px) {
+  .immersive-shell {
+    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-areas: 'rail workspace';
+  }
+
+  .workspace-human-stage {
+    display: none;
+  }
+
+  .immersive-shell.is-message-route {
+    grid-template-areas:
+      'rail human'
+      'rail workspace';
+  }
+
+  .immersive-shell.is-message-route .workspace-human-stage {
+    display: flex;
+    min-height: 420px;
+    padding: 70px 30px 0;
+  }
+
+  .workspace-human-body {
+    position: relative;
+    top: auto;
+    height: 420px;
+    min-height: 360px;
+  }
+
+  .workspace-human-stage .digital-human-panel {
+    width: min(76vw, 520px);
+    height: 420px;
+    min-height: 360px;
+  }
+
   .page-grid-message,
+  .immersive-message-stage,
   .live2d-shell {
     grid-template-columns: 1fr;
     height: auto;
+  }
+
+  .immersive-message-stage {
+    gap: 20px;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .conversation-zone {
+    min-height: 620px;
+    max-height: none;
   }
 
   .user-panel,
@@ -18,21 +64,8 @@
     grid-template-columns: 1fr;
   }
 
-  .dashboard-shell.right-collapsed {
+  .dashboard-insight-panel {
     grid-template-columns: 1fr;
-  }
-
-  .dashboard-right-rail {
-    position: static;
-  }
-
-  .dashboard-right-rail .digital-human-panel {
-    height: 420px;
-    min-height: 320px;
-  }
-
-  .dashboard-insight {
-    position: static;
   }
 
   .hero-charts,
@@ -45,26 +78,160 @@
   }
 }
 
-@media (max-width: 760px) {
-  .shell {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  html,
+  body,
+  #app {
+    overflow-x: hidden;
   }
 
-  .sidebar {
-    position: static;
-    padding: 14px;
+  .immersive-shell {
+    display: block;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
   }
 
-  .nav-list {
+  .workspace-human-stage {
+    display: none;
+  }
+
+  .immersive-shell.is-message-route .workspace-human-stage {
+    display: flex;
+    min-height: 0;
+    padding: 0 14px 10px;
+  }
+
+  .workspace-human-body {
+    height: min(420px, 44svh);
+    min-height: 300px;
+  }
+
+  .workspace-human-stage .digital-human-panel {
+    width: min(94vw, 430px);
+    height: 100%;
+    min-height: 300px;
+  }
+
+  .stage-background {
+    background-position: center top;
+  }
+
+  .workspace-rail {
+    position: fixed;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: max(10px, env(safe-area-inset-left));
+    z-index: 40;
+    min-height: 0;
     flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    border-radius: 26px;
+    padding: 8px;
+    box-shadow: 0 18px 46px rgba(31, 98, 152, 0.24);
+  }
+
+  .rail-brand,
+  .rail-account {
+    display: none;
+  }
+
+  .rail-nav {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .rail-nav-item {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: 72px;
+    min-height: 54px;
+    border-radius: 21px;
+  }
+
+  .rail-nav-item span {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .immersive-workspace {
+    min-height: 100dvh;
+    padding: 16px 14px 0;
+  }
+
+  .stage-topbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .stage-title h1 {
+    font-size: 23px;
+  }
+
+  .stage-status-strip {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
     overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
   }
 
-  .nav-item {
+  .stage-status-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .status-pill {
+    min-height: 36px;
     flex: 0 0 auto;
+    padding: 0 12px;
+    font-size: 12px;
   }
 
-  .workspace {
+  .background-quick-switch {
+    min-width: max-content;
+  }
+
+  .recommendation-page-tabs {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .recommendation-page-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .recommendation-page-tab {
+    flex: 1 0 auto;
+    min-width: max-content;
+  }
+
+  .stage-content > .panel,
+  .stage-content > .dashboard-shell,
+  .stage-content > .recommendation-page,
+  .stage-content > .live2d-page,
+  .stage-content > .settings-panel {
+    width: 100%;
+    min-height: auto;
+    border-radius: 20px;
+  }
+
+  .stage-content > .dashboard-shell,
+  .stage-content > .recommendation-page,
+  .stage-content > .live2d-page {
     padding: 14px;
   }
 
@@ -74,19 +241,17 @@
     flex-direction: column;
   }
 
-  .message-row {
-    max-width: 94%;
+  .panel-header {
+    padding: 16px;
   }
 
-  .form-grid,
-  .composer,
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
-
+  .header-actions,
+  .toolbar-actions,
   .dashboard-title-row,
   .dashboard-actions,
-  .filter-row {
+  .filter-row,
+  .digital-human-toolbar,
+  .background-manager-head {
     align-items: stretch;
     flex-direction: column;
   }
@@ -96,21 +261,288 @@
   .range-select,
   .filter-row .el-input,
   .filter-row .el-select,
-  .filter-row .el-date-editor {
+  .filter-row .el-date-editor,
+  .digital-human-actions,
+  .digital-human-actions .el-input,
+  .digital-human-actions .el-select {
     width: 100%;
+    min-width: 0;
+  }
+
+  .conversation-zone {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .conversation-zone .session-panel {
+    max-height: 170px;
+  }
+
+  .conversation-zone .session-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+  }
+
+  .conversation-zone .session-row {
+    min-width: min(188px, 70vw);
+  }
+
+  .message-row {
+    max-width: 94%;
+  }
+
+  .form-grid,
+  .composer,
+  .kpi-grid,
+  .mcp-meta-grid,
+  .form-grid.compact,
+  .cover-editor,
+  .background-upload-row,
+  .human-card-actions {
+    grid-template-columns: 1fr;
   }
 
   .trend-chart {
     height: 220px;
   }
 
-  .dashboard-right-rail .digital-human-panel {
-    height: 360px;
-    min-height: 280px;
+  .mcp-layout {
+    padding: 14px;
+  }
+
+  .mcp-section-header,
+  .mcp-detail-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mcp-detail {
+    min-height: auto;
+  }
+
+  .mcp-detail-actions,
+  .mcp-detail-actions .el-button {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .mcp-meta-grid .wide {
+    grid-column: auto;
+  }
+
+  .el-dialog {
+    width: calc(100vw - 24px) !important;
+    max-width: 560px;
+    margin: 12px auto !important;
+    border-radius: 18px;
+  }
+
+  .el-dialog__body {
+    max-height: min(70dvh, 620px);
+    overflow-y: auto;
+  }
+
+  .el-drawer {
+    width: min(100vw, 430px) !important;
   }
 }
 
-@media (min-width: 761px) and (max-width: 1180px) {
+@media (max-width: 640px) {
+  .immersive-workspace {
+    padding: 12px 12px 0;
+  }
+
+  .stage-topbar {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .stage-title .eyebrow {
+    font-size: 10px;
+  }
+
+  .stage-title h1 {
+    font-size: 21px;
+  }
+
+  .immersive-message-stage {
+    display: flex;
+    gap: 12px;
+    min-height: auto;
+  }
+
+  .workspace-human-body {
+    height: min(400px, 43svh);
+    min-height: 290px;
+  }
+
+  .digital-human-static {
+    object-position: center bottom;
+  }
+
+  .voice-orb {
+    right: 16px;
+    bottom: 18px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .conversation-zone {
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .conversation-zone .session-panel {
+    max-height: 124px;
+    border-radius: 18px;
+  }
+
+  .conversation-zone .session-panel .panel-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 12px;
+  }
+
+  .conversation-zone .session-panel h2 {
+    margin-bottom: 0;
+    font-size: 16px;
+  }
+
+  .conversation-zone .session-list {
+    gap: 6px;
+    padding: 8px 10px 10px;
+  }
+
+  .conversation-zone .session-row {
+    min-width: min(168px, 64vw);
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  .conversation-glass {
+    min-height: 320px;
+    max-height: min(46svh, 430px);
+    border-radius: 20px;
+  }
+
+  .chat-body {
+    padding: 14px 12px;
+  }
+
+  .composer {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .composer .el-button,
+  .composer-controls .el-button,
+  .voice-input-button {
+    min-height: 44px;
+  }
+
+  .message-row {
+    max-width: 96%;
+    gap: 8px;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .message-bubble {
+    border-radius: 16px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .share-toolbar,
+  .danger-zone,
+  .drawer-actions,
+  .background-card-actions,
+  .human-card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .share-toolbar .el-button,
+  .danger-zone .el-button,
+  .drawer-actions .el-button,
+  .background-card-actions .el-button,
+  .human-card-actions .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .background-grid,
+  .digital-human-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-background-manager {
+    margin: 12px 12px 0;
+  }
+
+  .mcp-layout {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  .immersive-shell {
+    padding-bottom: calc(136px + env(safe-area-inset-bottom));
+  }
+
+  .workspace-rail {
+    border-radius: 24px;
+    padding: 7px;
+  }
+
+  .rail-nav {
+    gap: 4px;
+  }
+
+  .rail-nav-item {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: 72px;
+    min-height: 52px;
+    gap: 4px;
+  }
+
+  .rail-nav-item span {
+    font-size: 10px;
+  }
+
+  .status-pill {
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .workspace-human-stage .digital-human-panel {
+    min-height: 300px;
+  }
+
+  .conversation-glass {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .stage-content > .dashboard-shell,
+  .stage-content > .recommendation-page,
+  .stage-content > .live2d-page {
+    padding: 12px;
+  }
+
+  .panel-header {
+    padding: 14px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1180px) {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

@@ -47,6 +47,7 @@ from core import audit_service
 from core import digital_human_service
 from gui.auth_routes import register_auth_routes
 from gui.avatar_routes import register_avatar_routes
+from gui.background_routes import register_background_routes
 from gui.dashboard_routes import register_dashboard_routes
 from gui.digital_human_routes import register_digital_human_routes
 from gui.tourism_recommendation_routes import register_tourism_recommendation_routes
@@ -77,6 +78,7 @@ auth = HTTPBasicAuth()
 CORS(__app, supports_credentials=True)
 register_auth_routes(__app)
 register_avatar_routes(__app)
+register_background_routes(__app)
 register_dashboard_routes(__app)
 register_digital_human_routes(__app)
 register_tourism_recommendation_routes(__app)

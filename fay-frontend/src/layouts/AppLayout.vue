@@ -1,48 +1,58 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type CSSProperties, type Component } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import {
+  AudioLines,
   BookOpen,
   Bot,
   ChevronDown,
-  FileText,
   LayoutDashboard,
   LogOut,
-  Map as MapIcon,
   MessageSquareText,
-  PanelLeftClose,
-  PanelLeftOpen,
-  SlidersHorizontal,
+  Route as RouteIcon,
+  Settings,
   UserCog,
 } from '@lucide/vue';
 import ProfileDialog from '../components/auth/ProfileDialog.vue';
+import BackgroundSwitcher from '../components/backgrounds/BackgroundSwitcher.vue';
+import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
 import { BRAND_CONSOLE_EYEBROW, BRAND_CONSOLE_NAME, BRAND_NAME } from '../config/brand';
 import { useAppStore } from '../stores/app';
 import { useAuthStore } from '../stores/auth';
+import { useBackgroundStore } from '../stores/background';
 import { BRAND_LOGO_SRC, DEFAULT_USER_AVATAR_SRC } from '../utils/assets';
+import type { DigitalHumanPanelContext } from '../utils/digitalHumanRenderUrl';
 import { ReconnectingSocket, getFayWebSocketUrl } from '../utils/websocket';
-import { isNavItemActive } from '../utils/navigation';
+import {
+  getPrimaryNavigationGroups,
+  isNavigationGroupActive,
+  type PrimaryNavigationKey,
+} from '../utils/navigationGroups';
 
 const appStore = useAppStore();
 const authStore = useAuthStore();
+const backgroundStore = useBackgroundStore();
 const route = useRoute();
 const router = useRouter();
-const sidebarCollapsed = ref(false);
 const profileDialogVisible = ref(false);
 
-const navItems = [
-  { to: '/', label: '消息', icon: MessageSquareText, exact: true },
-  { to: '/live2d', label: '数字人', icon: Bot, exact: false, requiresRole: 'admin' },
-  { to: '/dashboard', label: '数据看板', icon: LayoutDashboard, exact: false },
-  { to: '/visitor-report', label: '游客报告', icon: FileText, exact: false, requiresRole: 'admin' },
-  { to: '/recommendation', label: '游览推荐', icon: MapIcon, exact: true },
-  { to: '/recommendation/manage', label: '推荐维护', icon: SlidersHorizontal, exact: false, requiresRole: 'admin' },
-  { to: '/knowledge', label: '知识库', icon: BookOpen, exact: false, requiresRole: 'admin' },
-  { to: '/users', label: '用户', icon: UserCog, exact: false, requiresRole: 'admin' },
-];
+const navIcons: Record<PrimaryNavigationKey, Component> = {
+  message: MessageSquareText,
+  knowledge: BookOpen,
+  'digital-human': Bot,
+  recommendation: RouteIcon,
+  data: LayoutDashboard,
+  settings: Settings,
+};
+
+const primaryNavItems = getPrimaryNavigationGroups().map((item) => ({
+  ...item,
+  icon: navIcons[item.key],
+}));
+const visiblePrimaryNavItems = computed(() => primaryNavItems.filter((item) => !item.requiresRole || (item.requiresRole === 'admin' && authStore.isAdmin)));
+
 const logoSrc = BRAND_LOGO_SRC;
 const defaultUserAvatar = DEFAULT_USER_AVATAR_SRC;
-const visibleNavItems = computed(() => navItems.filter((item) => !item.requiresRole || (item.requiresRole === 'admin' && authStore.isAdmin)));
 
 let socket: ReconnectingSocket | null = null;
 let statusTimer: number | null = null;
@@ -60,6 +70,11 @@ const liveStateText = computed(() => {
 const selectedUsername = computed(() => appStore.selectedUser?.[1] || 'User');
 const operatorName = computed(() => authStore.user?.username || appStore.selectedUser?.[1] || 'User');
 const operatorAvatar = computed(() => authStore.user?.avatar_path || defaultUserAvatar);
+const isMessageRoute = computed(() => route.name === 'message');
+const digitalHumanContext = computed<DigitalHumanPanelContext>(() => route.name === 'message' ? 'message' : 'default');
+const stageBackgroundStyle = computed<CSSProperties>(() => ({
+  backgroundImage: `linear-gradient(90deg, rgba(69, 159, 226, 0.62), rgba(255, 255, 255, 0.1) 52%, rgba(255, 255, 255, 0.28)), url("${backgroundStore.activeBackgroundUrl.replace(/"/g, '\\"')}")`,
+}));
 
 async function handleLogout() {
   await authStore.logout();
@@ -74,10 +89,6 @@ async function handleAccountCommand(command: string | number | object) {
   if (command === 'logout') {
     await handleLogout();
   }
-}
-
-function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value;
 }
 
 function openProfileDialog() {
@@ -114,39 +125,32 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
-    <aside class="sidebar" aria-label="主导航">
-      <div class="brand">
-        <img class="brand-logo" :src="logoSrc" :alt="BRAND_NAME" />
-        <button
-          class="sidebar-toggle"
-          type="button"
-          :aria-label="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-          :title="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-          @click="toggleSidebar"
-        >
-          <PanelLeftOpen v-if="sidebarCollapsed" :size="18" aria-hidden="true" />
-          <PanelLeftClose v-else :size="18" aria-hidden="true" />
-        </button>
+  <div class="immersive-shell" :class="{ 'is-message-route': isMessageRoute }">
+    <div class="stage-background" :style="stageBackgroundStyle" aria-hidden="true" />
+    <aside class="workspace-rail" aria-label="主导航">
+      <div class="rail-brand">
+        <img class="rail-logo" :src="logoSrc" :alt="BRAND_NAME" />
+        <span>{{ BRAND_NAME }}</span>
       </div>
 
-      <nav class="nav-list">
+      <nav class="rail-nav">
         <RouterLink
-          v-for="item in visibleNavItems"
-          :key="item.to"
+          v-for="item in visiblePrimaryNavItems"
+          :key="item.key"
           :to="item.to"
-          :exact="item.to === '/'"
-          class="nav-item"
-          :class="{ 'is-active': isNavItemActive(route.path, item) }"
+          class="rail-nav-item"
+          :class="{ 'is-active': isNavigationGroupActive(route.path, item) }"
+          :aria-label="item.label"
+          :title="item.label"
         >
-          <component :is="item.icon" :size="20" aria-hidden="true" />
+          <component :is="item.icon" :size="22" aria-hidden="true" />
           <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
 
-      <div class="sidebar-footer">
+      <div class="rail-account">
         <el-dropdown trigger="click" placement="top-start" popper-class="account-menu-popper" @command="handleAccountCommand">
-          <button class="account-trigger" type="button" aria-label="账户设置" title="账户设置">
+          <button class="account-trigger immersive-account-trigger" type="button" aria-label="账户设置" title="账户设置">
             <img class="account-avatar" :src="operatorAvatar" alt="" />
             <span class="account-copy">
               <strong>{{ operatorName }}</strong>
@@ -170,13 +174,29 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
-    <main class="workspace">
-      <header class="topbar">
-        <div>
+    <aside class="workspace-human-stage" aria-label="数字人展示">
+      <div class="workspace-human-body">
+        <DigitalHumanPanel :view-context="digitalHumanContext" />
+        <div
+          v-if="isMessageRoute"
+          class="voice-orb"
+          :class="{ active: appStore.audioConfig.mic }"
+          aria-label="数字人语音状态"
+          title="数字人语音状态"
+        >
+          <AudioLines :size="24" aria-hidden="true" />
+        </div>
+      </div>
+    </aside>
+
+    <main class="immersive-workspace">
+      <header class="stage-topbar">
+        <div class="stage-title">
           <p class="eyebrow">{{ BRAND_CONSOLE_EYEBROW }}</p>
           <h1>{{ BRAND_CONSOLE_NAME }}</h1>
         </div>
-        <div class="status-strip" aria-label="系统状态">
+        <div class="stage-status-strip" aria-label="系统状态">
+          <BackgroundSwitcher />
           <span class="status-pill" :class="{ ok: appStore.systemStatus.server }">后端</span>
           <span class="status-pill" :class="{ ok: appStore.systemStatus.digital_human }">数字人</span>
           <span class="status-pill" :class="{ ok: appStore.systemStatus.remote_audio }">远程音频</span>
@@ -184,7 +204,9 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <RouterView />
+      <section class="stage-content">
+        <RouterView />
+      </section>
     </main>
     <ProfileDialog v-model:visible="profileDialogVisible" />
   </div>

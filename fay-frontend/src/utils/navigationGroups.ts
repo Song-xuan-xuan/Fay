@@ -1,4 +1,4 @@
-export type PrimaryNavigationKey = 'message' | 'knowledge' | 'digital-human' | 'data' | 'settings';
+export type PrimaryNavigationKey = 'message' | 'knowledge' | 'digital-human' | 'recommendation' | 'data' | 'settings';
 
 export interface PrimaryNavigationGroup {
   key: PrimaryNavigationKey;
@@ -12,11 +12,12 @@ const primaryNavigationGroups: PrimaryNavigationGroup[] = [
   { key: 'message', label: '对话', to: '/', activePaths: ['/'] },
   { key: 'knowledge', label: '知识', to: '/knowledge', activePaths: ['/knowledge'], requiresRole: 'admin' },
   { key: 'digital-human', label: '数字人', to: '/live2d', activePaths: ['/live2d'], requiresRole: 'admin' },
+  { key: 'recommendation', label: '推荐', to: '/recommendation', activePaths: ['/recommendation', '/recommendation/manage'] },
   {
     key: 'data',
     label: '数据',
     to: '/dashboard',
-    activePaths: ['/dashboard', '/visitor-report', '/recommendation', '/recommendation/manage'],
+    activePaths: ['/dashboard', '/visitor-report'],
   },
   { key: 'settings', label: '设置', to: '/mcp', activePaths: ['/mcp', '/users', '/setting'], requiresRole: 'admin' },
 ];

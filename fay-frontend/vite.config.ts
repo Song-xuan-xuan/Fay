@@ -43,6 +43,10 @@ export default defineConfig(({ mode }) => {
           target: flaskTarget,
           changeOrigin: true,
         },
+        '/backgrounds': {
+          target: flaskTarget,
+          changeOrigin: true,
+        },
       },
     },
     define: {

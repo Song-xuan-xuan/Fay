@@ -134,6 +134,11 @@ CLAUDE.md
 docs/superpowers/
 data/
 test/
+!fay-frontend/test/
+fay-frontend/test/*
+!fay-frontend/test/MessageDigitalHumanPanel.test.ts
+!fay-frontend/test/immersivePanels.test.ts
+!fay-frontend/test/viteProxy.test.ts
 samples/
 memory/
 model/

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Activity, BarChart3, Database, PanelRightClose, PanelRightOpen, RefreshCw, Sparkles, TrendingUp } from '@lucide/vue';
+import { Activity, BarChart3, Database, RefreshCw, Sparkles, TrendingUp } from '@lucide/vue';
 import {
   explainDashboard,
   type DashboardExplainScope,
@@ -19,7 +19,6 @@ import {
   type HotTopicItem,
   type TourismFilters,
 } from '../api/dashboard';
-import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
 import VisitorReportPanel from '../components/dashboard/VisitorReportPanel.vue';
 import { useAppStore } from '../stores/app';
 import { useAuthStore } from '../stores/auth';
@@ -33,7 +32,6 @@ const activeTab = ref('overview');
 const loading = ref(false);
 const reimporting = ref(false);
 const explainingScope = ref<DashboardExplainScope | ''>('');
-const rightCollapsed = ref(false);
 const explanation = ref('点击“解读大盘”或“解读景区”，生成当前看板的文本解读。');
 const explanationTitle = ref('看板智能解读');
 const explanationHighlights = ref<string[]>([]);
@@ -155,7 +153,6 @@ async function runExplain(scope: DashboardExplainScope) {
     explanationActions.value = result.actions || [];
     explanationSpoken.value = Boolean(result.spoken);
     explanationSpeaker.value = result.speaker_username || speakUsername.value;
-    rightCollapsed.value = false;
     if (result.spoken) {
       ElMessage.success(`已发送给数字人 ${explanationSpeaker.value} 播报`);
     } else if (result.speak_error) {
@@ -188,7 +185,7 @@ onMounted(loadDashboard);
 </script>
 
 <template>
-  <section class="dashboard-shell" :class="{ 'right-collapsed': rightCollapsed }" v-loading="loading">
+  <section class="dashboard-shell" v-loading="loading">
     <div class="dashboard-main">
       <div class="dashboard-title-row">
         <div>
@@ -217,6 +214,28 @@ onMounted(loadDashboard);
         <span>当前景区：{{ selectedAttraction }}</span>
         <el-tag v-if="overview?.is_demo" type="warning">演示数据</el-tag>
       </div>
+
+      <section class="dashboard-insight-panel">
+        <div class="insight-heading">
+          <div class="insight-avatar"><Sparkles :size="22" aria-hidden="true" /></div>
+          <div>
+            <h3>{{ explanationTitle }}</h3>
+            <p class="panel-note">右侧全局数字人负责呈现，文本解读可辅助复盘看板数据。</p>
+          </div>
+        </div>
+        <div class="insight-actions">
+          <el-button size="small" :loading="explainingScope === 'overview'" :disabled="explaining && explainingScope !== 'overview'" @click="runExplain('overview')">解读大盘</el-button>
+          <el-button size="small" :loading="explainingScope === 'tourism'" :disabled="explaining && explainingScope !== 'tourism'" @click="runExplain('tourism')">解读景区</el-button>
+        </div>
+        <div v-if="explanationHighlights.length" class="insight-highlights">
+          <span v-for="item in explanationHighlights" :key="item">{{ item }}</span>
+        </div>
+        <div class="insight-text">{{ explanation }}</div>
+        <ul v-if="explanationActions.length" class="insight-action-list">
+          <li v-for="item in explanationActions" :key="item">{{ item }}</li>
+        </ul>
+        <p v-if="explanationSpoken" class="insight-status">已发送给 {{ explanationSpeaker }} 的数字人播报</p>
+      </section>
 
       <div class="kpi-grid">
         <article v-for="item in kpis" :key="item.title" class="kpi-card">
@@ -286,31 +305,5 @@ onMounted(loadDashboard);
         </el-tab-pane>
       </el-tabs>
     </div>
-
-    <aside class="dashboard-right-rail" :class="{ collapsed: rightCollapsed }">
-      <DigitalHumanPanel v-if="!rightCollapsed" />
-      <section class="dashboard-insight" :class="{ collapsed: rightCollapsed }">
-        <button class="collapse-button" type="button" @click="rightCollapsed = !rightCollapsed" :aria-label="rightCollapsed ? '展开看板解读' : '折叠看板解读'">
-          <PanelRightOpen v-if="rightCollapsed" :size="18" /><PanelRightClose v-else :size="18" />
-        </button>
-        <template v-if="!rightCollapsed">
-          <div class="insight-avatar"><Sparkles :size="22" /></div>
-          <h3>{{ explanationTitle }}</h3>
-          <p class="panel-note">右侧数字人负责呈现，文本解读可辅助复盘看板数据。</p>
-          <div class="insight-actions">
-            <el-button size="small" :loading="explainingScope === 'overview'" :disabled="explaining && explainingScope !== 'overview'" @click="runExplain('overview')">解读大盘</el-button>
-            <el-button size="small" :loading="explainingScope === 'tourism'" :disabled="explaining && explainingScope !== 'tourism'" @click="runExplain('tourism')">解读景区</el-button>
-          </div>
-          <div v-if="explanationHighlights.length" class="insight-highlights">
-            <span v-for="item in explanationHighlights" :key="item">{{ item }}</span>
-          </div>
-          <div class="insight-text">{{ explanation }}</div>
-          <ul v-if="explanationActions.length" class="insight-action-list">
-            <li v-for="item in explanationActions" :key="item">{{ item }}</li>
-          </ul>
-          <p v-if="explanationSpoken" class="insight-status">已发送给 {{ explanationSpeaker }} 的数字人播报</p>
-        </template>
-      </section>
-    </aside>
   </section>
 </template>

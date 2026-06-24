@@ -3,6 +3,52 @@
   min-width: 0;
 }
 
+.recommendation-page-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  padding: 6px;
+  box-shadow: 0 14px 34px rgba(37, 102, 160, 0.12);
+}
+
+.recommendation-page-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 0 14px;
+  color: #25578a;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recommendation-page-tab:hover,
+.recommendation-page-tab:focus-visible {
+  border-color: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 24px rgba(37, 102, 160, 0.14);
+}
+
+.recommendation-page-tab.is-active {
+  border-color: rgba(255, 255, 255, 0.82);
+  background: #ffffff;
+  color: var(--color-accent);
+}
+
 .recommendation-layout {
   display: grid;
   grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);

@@ -22,6 +22,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIVE2D_CONFIG_KEY = "live2d"
 SAMPLES_ROOT_CONFIG_KEY = "samples_root"
 RENDER_BASE_URL_CONFIG_KEY = "render_base_url"
+IGNORED_MODELS_CONFIG_KEY = "ignored_models"
 RESOURCE_SYNC_FIELDS = ("type", "render_url", "model_name")
 
 
@@ -40,6 +41,17 @@ def _configured_samples_root():
 
 def configured_render_base_url():
     return _live2d_config_value(RENDER_BASE_URL_CONFIG_KEY, DEFAULT_RENDER_URL)
+
+
+def ignored_model_names():
+    config = config_util.config if isinstance(config_util.config, dict) else {}
+    live2d_config = config.get(LIVE2D_CONFIG_KEY)
+    if not isinstance(live2d_config, dict):
+        return set()
+    ignored = live2d_config.get(IGNORED_MODELS_CONFIG_KEY) or []
+    if not isinstance(ignored, list):
+        return set()
+    return {str(item).strip().lower() for item in ignored if str(item).strip()}
 
 
 def _live2d_config_value(key, default):
@@ -191,9 +203,12 @@ def discover_live2d_resource_models(root=None, render_base_url=None):
     if not os.path.isdir(root_dir):
         return []
     effective_render_base_url = render_base_url or configured_render_base_url()
+    ignored_models = ignored_model_names()
     models = []
     for entry in sorted(os.scandir(root_dir), key=lambda item: item.name.lower()):
         if not entry.is_dir() or not SAFE_MODEL_NAME.match(entry.name):
+            continue
+        if entry.name.lower() in ignored_models:
             continue
         if _model_json_exists(entry.path, entry.name) and _is_supported_moc3_model(entry.path, entry.name):
             models.append(_to_digital_human(entry.name, entry.path, effective_render_base_url))

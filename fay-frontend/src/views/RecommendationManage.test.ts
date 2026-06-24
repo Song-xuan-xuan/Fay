@@ -4,6 +4,14 @@ import routeWorkbenchSource from '../components/recommendation/RouteWorkbench.vu
 import source from './RecommendationManage.vue?raw';
 
 describe('RecommendationManage view', () => {
+  it('stays inside the recommendation workspace with route and maintenance tabs', () => {
+    expect(source).toContain('recommendation-page-tabs');
+    expect(source).toContain('路线推荐');
+    expect(source).toContain('维护推荐');
+    expect(source).toContain('to="/recommendation"');
+    expect(source).toContain('to="/recommendation/manage"');
+  });
+
   it('offers an import tutorial explaining package fields and weights', () => {
     expect(source).toContain('导入教程');
     expect(source).toContain('importTutorialVisible');

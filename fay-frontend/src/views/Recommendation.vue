@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { RouterLink, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Clipboard, Download, Printer, RefreshCw, Route, Save, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/vue';
+import { Clipboard, Download, Printer, RefreshCw, Route, Save, Settings, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/vue';
 import {
   createRecommendation,
   deleteRecommendationPreferences,
@@ -13,7 +14,10 @@ import {
   type RecommendationResult,
   type RecommendationRoute,
 } from '../api/recommendation';
+import { useAuthStore } from '../stores/auth';
 
+const route = useRoute();
+const authStore = useAuthStore();
 const loading = ref(false);
 const saving = ref(false);
 const result = ref<RecommendationResult | null>(null);
@@ -144,6 +148,13 @@ function nodeLabel(stop: RecommendationRoute['stops'][number]) {
   return labels[stop.node_type || ''] || '';
 }
 
+function isRecommendationPageActive(path: string) {
+  if (path === '/recommendation') {
+    return route.path === path;
+  }
+  return route.path === path || route.path.startsWith(`${path}/`);
+}
+
 onMounted(loadInitialData);
 </script>
 
@@ -160,6 +171,26 @@ onMounted(loadInitialData);
         <el-button type="primary" :icon="Sparkles" :loading="loading" @click="handleRecommend">生成路线</el-button>
       </div>
     </div>
+
+    <nav class="recommendation-page-tabs" aria-label="推荐功能导航">
+      <RouterLink
+        to="/recommendation"
+        class="recommendation-page-tab"
+        :class="{ 'is-active': isRecommendationPageActive('/recommendation') }"
+      >
+        <Route :size="16" aria-hidden="true" />
+        <span>路线推荐</span>
+      </RouterLink>
+      <RouterLink
+        v-if="authStore.isAdmin"
+        to="/recommendation/manage"
+        class="recommendation-page-tab"
+        :class="{ 'is-active': isRecommendationPageActive('/recommendation/manage') }"
+      >
+        <Settings :size="16" aria-hidden="true" />
+        <span>维护推荐</span>
+      </RouterLink>
+    </nav>
 
     <div class="recommendation-layout">
       <section class="chart-panel recommendation-form-panel">
