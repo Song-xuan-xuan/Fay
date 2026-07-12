@@ -96,6 +96,7 @@
 
   .immersive-shell {
     display: block;
+    height: auto;
     min-height: 100dvh;
     overflow-x: hidden;
     overflow-y: auto;
@@ -180,7 +181,9 @@
   }
 
   .immersive-workspace {
+    height: auto;
     min-height: 100dvh;
+    overflow: visible;
     padding: 16px 14px 0;
   }
 

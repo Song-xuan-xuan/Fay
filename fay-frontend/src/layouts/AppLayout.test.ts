@@ -4,6 +4,11 @@ import source from './AppLayout.vue?raw';
 
 const layoutCss = readFileSync(new URL('../styles/layout.css', import.meta.url), 'utf-8');
 
+function getCssBlock(selector: string) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return layoutCss.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1] ?? '';
+}
+
 describe('AppLayout sidebar account menu', () => {
   it('groups profile and logout actions into one account settings menu', () => {
     expect(source).toContain('<el-dropdown');
@@ -48,8 +53,8 @@ describe('AppLayout sidebar account menu', () => {
   });
 
   it('keeps the desktop rail fixed while only the stage content scrolls', () => {
-    expect(layoutCss).toContain('height: 100vh;');
-    expect(layoutCss).toContain('.stage-content');
-    expect(layoutCss).toContain('overflow-y: auto;');
+    expect(getCssBlock('.immersive-shell')).toContain('height: 100vh;');
+    expect(getCssBlock('.immersive-workspace')).toContain('height: 100vh;');
+    expect(getCssBlock('.stage-content')).toContain('overflow-y: auto;');
   });
 });
