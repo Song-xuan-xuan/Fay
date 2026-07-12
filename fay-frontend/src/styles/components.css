@@ -31,6 +31,15 @@
   padding: 22px;
 }
 
+.stage-content > .live2d-page {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
 .stage-content > .panel {
   overflow: hidden;
 }

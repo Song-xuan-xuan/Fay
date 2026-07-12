@@ -274,7 +274,6 @@ onMounted(loadDigitalHumans);
     <div class="panel digital-human-toolbar">
       <div>
         <h2>数字人库</h2>
-        <p>当前：{{ activeName }} · {{ activeTypeLabel }}</p>
       </div>
       <div class="toolbar-actions digital-human-actions">
         <el-input

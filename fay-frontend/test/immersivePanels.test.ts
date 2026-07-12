@@ -11,4 +11,11 @@ describe('immersive management panel styles', () => {
     expect(componentsCss).toContain('border-radius: 28px');
     expect(componentsCss).toContain('backdrop-filter: blur(26px) saturate(165%)');
   });
+
+  it('keeps the digital human library outer surface transparent', () => {
+    expect(componentsCss).toContain('.stage-content > .live2d-page {');
+    expect(componentsCss).toContain('background: transparent;');
+    expect(componentsCss).toContain('box-shadow: none;');
+    expect(componentsCss).toContain('border: 0;');
+  });
 });
