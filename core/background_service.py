@@ -72,12 +72,41 @@ def activate_background(background_id):
     return active
 
 
+def add_url_background(url, name=''):
+    """添加 URL 背景（不上传文件，直接保存 URL）"""
+    if not url or not url.strip():
+        raise ValueError('背景图 URL 不能为空')
+
+    url = url.strip()
+    if not url.startswith(('http://', 'https://', '/')):
+        raise ValueError('背景图 URL 格式不正确')
+
+    import uuid
+    token = uuid.uuid4().hex
+    display_name = name.strip() if name.strip() else 'URL 背景'
+
+    item = {
+        'id': f'url_{token[:12]}',
+        'name': display_name[:40],
+        'url': url,
+        'url_type': True,
+        'created_at': int(time.time()),
+    }
+
+    data = _read_metadata()
+    data['items'].append(item)
+    _write_metadata(data)
+    return item
+
+
 def delete_background(background_id):
     if background_id == 'default':
         raise ValueError('默认背景不能删除')
     data = _read_metadata()
     item = _remove_item(data, background_id)
-    _delete_file(item)
+    # 只有非 URL 背景才删除文件
+    if not item.get('url_type'):
+        _delete_file(item)
     if data.get('active_id') == background_id:
         data['active_id'] = 'default'
     _write_metadata(data)

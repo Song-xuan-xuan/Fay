@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { AudioLines, Mic, MicOff, Power, Send, Volume2, VolumeX, X } from '@lucide/vue';
+import { AudioLines, MicOff, Power, Send, Volume2, VolumeX, X } from '@lucide/vue';
 import { ElMessage } from 'element-plus';
 import { BRAND_SERVICE_NAME } from '../../config/brand';
 
@@ -118,154 +118,82 @@ onUnmounted(() => {
 
 <template>
   <footer class="composer">
-    <!-- 图片预览区域 -->
-    <div v-if="imagePreviews.length > 0" class="image-previews">
-      <div v-for="(preview, index) in imagePreviews" :key="index" class="image-preview-item">
-        <img :src="preview" alt="预览图片" />
-        <button class="remove-image-btn" @click="removeImage(index)">
-          <X :size="16" />
-        </button>
+    <div class="composer-shell">
+      <div v-if="imagePreviews.length > 0" class="image-previews">
+        <div v-for="(preview, index) in imagePreviews" :key="index" class="image-preview-item">
+          <img :src="preview" alt="预览图片" />
+          <button class="remove-image-btn" aria-label="移除图片" @click="removeImage(index)">
+            <X :size="16" />
+          </button>
+        </div>
       </div>
-    </div>
 
-    <el-input
-      :model-value="modelValue"
-      type="textarea"
-      :autosize="{ minRows: 1, maxRows: 4 }"
-      :placeholder="imagePreviews.length > 0 ? `已添加 ${imagePreviews.length} 张图片，可继续粘贴或输入文字` : '输入消息，Enter 发送（支持粘贴图片）'"
-      @update:model-value="emit('update:modelValue', $event)"
-      @keydown.enter.exact.prevent="emit('submit')"
-    />
-    <el-button
-      class="voice-input-button"
-      :type="voiceRecording ? 'danger' : 'default'"
-      :icon="AudioLines"
-      :loading="voiceTranscribing"
-      :disabled="voiceTranscribing || (!canVoiceInput && !voiceRecording)"
-      :aria-label="voiceRecording ? '停止手动语音输入并发送' : '手动语音发送'"
-      title="手动语音发送：停止录音后才识别并发送"
-      @click="emit('toggle-voice-input')"
-    >
-      {{ voiceTranscribing ? '识别中' : voiceRecording ? '停止录音' : '语音发送' }}
-    </el-button>
-    <el-button type="primary" :icon="Send" :disabled="!canSend && imagePreviews.length === 0" @click="emit('submit')">发送</el-button>
-    <div v-if="showManagementControls" class="composer-controls">
-      <el-button
-        class="realtime-listen-button"
-        :class="{ listening: micEnabled }"
-        :type="micEnabled ? 'warning' : 'default'"
-        :icon="micEnabled ? Mic : MicOff"
-        :aria-label="micEnabled ? '关闭实时监听和唤醒词检测' : '开启实时监听和唤醒词检测'"
-        :title="micEnabled ? '实时监听会持续检测唤醒词' : '实时监听关闭后只保留手动语音发送'"
-        @click="emit('toggle-mic')"
-      >
-        {{ micEnabled ? '实时监听中' : '实时监听关' }}
-      </el-button>
-      <el-button
-        v-if="liveState === 1"
-        :icon="speakerEnabled ? Volume2 : VolumeX"
-        :aria-label="speakerEnabled ? '关闭扬声器' : '开启扬声器'"
-        @click="emit('toggle-speaker')"
-      />
-      <el-button v-else :icon="Power" :aria-label="`启动 ${BRAND_SERVICE_NAME}`" @click="emit('start-live')" />
+      <div class="composer-input">
+        <el-input
+          :model-value="modelValue"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 4 }"
+          :placeholder="imagePreviews.length > 0 ? `已添加 ${imagePreviews.length} 张图片，可继续粘贴或输入文字` : '输入消息，Enter 发送（支持粘贴图片）'"
+          @update:model-value="emit('update:modelValue', $event)"
+          @keydown.enter.exact.prevent="emit('submit')"
+        />
+      </div>
+
+      <div class="composer-toolbar">
+        <el-button
+          class="composer-icon-button voice-input-button"
+          :type="voiceRecording ? 'danger' : 'default'"
+          :icon="AudioLines"
+          circle
+          :loading="voiceTranscribing"
+          :disabled="voiceTranscribing || (!canVoiceInput && !voiceRecording)"
+          :aria-label="voiceRecording ? '停止手动语音输入并发送' : '手动语音发送'"
+          title="手动语音发送：停止录音后才识别并发送"
+          @click="emit('toggle-voice-input')"
+        />
+        <el-button
+          v-if="showManagementControls"
+          class="composer-icon-button realtime-listen-button"
+          :class="{ listening: micEnabled }"
+          :type="micEnabled ? 'warning' : 'default'"
+          :icon="micEnabled ? AudioLines : MicOff"
+          circle
+          :disabled="!micEnabled && (liveState !== 1 || !canVoiceInput)"
+          :aria-label="micEnabled ? '关闭连续语音对话' : '开启连续语音对话'"
+          :title="micEnabled ? '连续对话中，点击关闭' : '开启连续对话，无需唤醒词'"
+          @click="emit('toggle-mic')"
+        />
+        <el-button
+          v-if="showManagementControls && liveState === 1"
+          class="composer-icon-button"
+          :icon="speakerEnabled ? Volume2 : VolumeX"
+          circle
+          :aria-label="speakerEnabled ? '关闭扬声器' : '开启扬声器'"
+          :title="speakerEnabled ? '关闭扬声器' : '开启扬声器'"
+          @click="emit('toggle-speaker')"
+        />
+        <el-button
+          v-else-if="showManagementControls"
+          class="composer-icon-button"
+          :icon="Power"
+          circle
+          :aria-label="`启动 ${BRAND_SERVICE_NAME}`"
+          :title="`启动 ${BRAND_SERVICE_NAME}`"
+          @click="emit('start-live')"
+        />
+        <el-button
+          class="composer-icon-button send-button"
+          type="primary"
+          :icon="Send"
+          circle
+          :disabled="!canSend && imagePreviews.length === 0"
+          aria-label="发送消息"
+          title="发送消息"
+          @click="emit('submit')"
+        />
+      </div>
     </div>
   </footer>
 </template>
 
-<style scoped>
-.composer {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto auto;
-  align-items: end;
-  gap: 8px;
-}
-
-.composer-controls {
-  display: flex;
-  grid-column: 1 / -1;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.composer-controls :deep(.el-button) {
-  min-width: 44px;
-  min-height: 40px;
-  margin-left: 0;
-}
-
-.voice-input-button {
-  min-width: 96px;
-  min-height: 40px;
-  margin-left: 0;
-}
-
-.realtime-listen-button {
-  min-width: 118px;
-}
-
-.realtime-listen-button.listening {
-  border-color: #d97706;
-  background: #fff7ed;
-  color: #9a3412;
-}
-
-@media (max-width: 760px) {
-  .composer {
-    grid-template-columns: 1fr;
-  }
-
-  .voice-input-button,
-  .composer-controls,
-  .composer-controls :deep(.el-button) {
-    width: 100%;
-  }
-}
-
-/* 图片预览区域 */
-.image-previews {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.image-preview-item {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid #ddd;
-}
-
-.image-preview-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.remove-image-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  padding: 0;
-}
-
-.remove-image-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
-}
-</style>
+<style scoped src="./ChatComposer.css"></style>

@@ -1,37 +1,4 @@
-import axios from 'axios';
-import { useAuthStore } from '../stores/auth';
-
-function getMcpApiBaseUrl() {
-  const configured = import.meta.env.VITE_MCP_API_BASE_URL;
-  if (configured) {
-    return configured;
-  }
-  return `http://${window.location.hostname}:5010`;
-}
-
-const mcpRequest = axios.create({
-  baseURL: getMcpApiBaseUrl(),
-  timeout: 15000,
-  withCredentials: false,
-});
-
-mcpRequest.interceptors.request.use((config) => {
-  const authStore = useAuthStore();
-  if (authStore.token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${authStore.token}`;
-  }
-  return config;
-});
-
-mcpRequest.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    const data = error.response?.data || {};
-    const message = data.error || data.message || data.msg || error.message;
-    return Promise.reject(new Error(message));
-  },
-);
+import request from './request';
 
 export interface KnowledgeBaseFile {
   name: string;
@@ -60,32 +27,32 @@ export interface KnowledgeBaseActionResponse {
 }
 
 export function listKnowledgeBaseFiles() {
-  return mcpRequest.get('/api/kb/files') as Promise<KnowledgeBaseFileListResponse>;
+  return request.get('/api/kb/files') as Promise<KnowledgeBaseFileListResponse>;
 }
 
 export function uploadKnowledgeBaseFiles(files: File[]) {
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
-  return mcpRequest.post('/api/kb/files/upload', formData, {
+  return request.post('/api/kb/files/upload', formData, {
     timeout: 120000,
   }) as Promise<KnowledgeBaseUploadResponse>;
 }
 
 export function deleteKnowledgeBaseFile(filename: string) {
-  return mcpRequest.delete(`/api/kb/files/${encodeURIComponent(filename)}`) as Promise<{
+  return request.delete(`/api/kb/files/${encodeURIComponent(filename)}`) as Promise<{
     success: boolean;
     deleted?: string;
   }>;
 }
 
 export function ingestKnowledgeBase(reset = false) {
-  return mcpRequest.post('/api/kb/ingest', { reset }, { timeout: 300000 }) as Promise<KnowledgeBaseActionResponse>;
+  return request.post('/api/kb/ingest', { reset }, { timeout: 300000 }) as Promise<KnowledgeBaseActionResponse>;
 }
 
 export function queryKnowledgeBase(query: string, topK = 5) {
-  return mcpRequest.post('/api/kb/query', { query, top_k: topK }, { timeout: 120000 }) as Promise<KnowledgeBaseActionResponse>;
+  return request.post('/api/kb/query', { query, top_k: topK }, { timeout: 120000 }) as Promise<KnowledgeBaseActionResponse>;
 }
 
 export function getKnowledgeBaseStats() {
-  return mcpRequest.get('/api/kb/stats') as Promise<KnowledgeBaseActionResponse>;
+  return request.get('/api/kb/stats') as Promise<KnowledgeBaseActionResponse>;
 }

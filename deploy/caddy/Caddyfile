@@ -1,0 +1,27 @@
+# DNS for fay.songtf.cn must point to this VPS before Caddy requests TLS certificates.
+# Build fay-frontend/dist before enabling this configuration. API requests remain
+# same-origin; Caddy owns the internal 5000/5010 service routing.
+
+fay.songtf.cn {
+	encode zstd gzip
+
+	redir /live2d-render /live2d-render/ 308
+
+	handle_path /live2d-render/* {
+		root * /root/Fay/live2d-render/current
+		file_server
+	}
+
+	reverse_proxy /api/mcp/* 127.0.0.1:5010
+	reverse_proxy /api/kb/* 127.0.0.1:5010
+
+	reverse_proxy /ws-ui 127.0.0.1:10003 {
+		header_up Host {host}
+	}
+
+	reverse_proxy /ws-human 127.0.0.1:10002 {
+		header_up Host {host}
+	}
+
+	reverse_proxy 127.0.0.1:5000
+}

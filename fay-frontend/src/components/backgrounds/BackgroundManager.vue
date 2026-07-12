@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, type CSSProperties } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Check, ImagePlus, RefreshCw, Trash2, Upload } from '@lucide/vue';
+import { Check, ImagePlus, Link as LinkIcon, RefreshCw, Trash2, Upload } from '@lucide/vue';
 import {
   activateBackground,
+  addBackgroundUrl,
   deleteBackground,
   uploadBackground,
   type BackgroundItem,
@@ -14,9 +15,12 @@ const backgroundStore = useBackgroundStore();
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
 const uploadName = ref('');
+const backgroundUrl = ref('');
+const urlName = ref('');
 const actionKey = ref('');
 
 const canUpload = computed(() => Boolean(selectedFile.value && !actionKey.value));
+const canAddUrl = computed(() => Boolean(backgroundUrl.value.trim() && !actionKey.value));
 
 function previewStyle(background: BackgroundItem): CSSProperties {
   return {
@@ -60,6 +64,26 @@ async function uploadSelected() {
     ElMessage.success('背景图已上传');
   } catch (error) {
     ElMessage.error(errorText(error, '上传背景图失败'));
+  } finally {
+    actionKey.value = '';
+  }
+}
+
+async function addUrlBackground() {
+  if (!backgroundUrl.value.trim()) {
+    ElMessage.warning('请输入背景图 URL');
+    return;
+  }
+  actionKey.value = 'add-url';
+  try {
+    const result = await addBackgroundUrl(backgroundUrl.value, urlName.value);
+    await refreshBackgrounds();
+    backgroundStore.selectBackground(result.background.id);
+    backgroundUrl.value = '';
+    urlName.value = '';
+    ElMessage.success('URL 背景已添加');
+  } catch (error) {
+    ElMessage.error(errorText(error, '添加 URL 背景失败'));
   } finally {
     actionKey.value = '';
   }
@@ -115,31 +139,45 @@ onMounted(() => {
     <div class="background-manager-head">
       <div>
         <h3>背景管理</h3>
-        <p>上传后台背景图，并设置页面默认背景。</p>
+        <p>上传本地背景图或添加在线 URL，并设置页面默认背景。</p>
       </div>
       <el-button :icon="RefreshCw" :loading="backgroundStore.loading" @click="refreshBackgrounds">刷新</el-button>
     </div>
 
-    <div class="background-upload-row">
-      <input
-        ref="fileInput"
-        class="background-file-input"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        @change="selectFile"
-      />
-      <el-input v-model="uploadName" placeholder="背景名称" />
-      <el-button :icon="ImagePlus" @click="chooseFile">
-        {{ selectedFile?.name || '选择图片' }}
-      </el-button>
-      <el-button :icon="Upload" type="primary" :disabled="!canUpload" :loading="actionKey === 'upload'" @click="uploadSelected">
-        上传
-      </el-button>
+    <div class="background-upload-section">
+      <h4>上传本地图片</h4>
+      <div class="background-upload-row">
+        <input
+          ref="fileInput"
+          class="background-file-input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          @change="selectFile"
+        />
+        <el-input v-model="uploadName" placeholder="背景名称" />
+        <el-button :icon="ImagePlus" @click="chooseFile">
+          {{ selectedFile?.name || '选择图片' }}
+        </el-button>
+        <el-button :icon="Upload" type="primary" :disabled="!canUpload" :loading="actionKey === 'upload'" @click="uploadSelected">
+          上传
+        </el-button>
+      </div>
+    </div>
+
+    <div class="background-url-section">
+      <h4>添加 URL 背景</h4>
+      <div class="background-upload-row">
+        <el-input v-model="urlName" placeholder="背景名称" />
+        <el-input v-model="backgroundUrl" placeholder="粘贴背景图片 URL（http:// 或 https://）" clearable />
+        <el-button :icon="LinkIcon" type="primary" :disabled="!canAddUrl" :loading="actionKey === 'add-url'" @click="addUrlBackground">
+          添加
+        </el-button>
+      </div>
     </div>
 
     <div class="background-grid" v-loading="backgroundStore.loading">
       <article
-        v-for="background in backgroundStore.backgrounds"
+        v-for="background in backgroundStore.backgrounds.filter(bg => !bg.builtin)"
         :key="background.id"
         class="background-card"
         :class="{ 'is-active': background.url === backgroundStore.activeBackgroundUrl }"
@@ -147,7 +185,9 @@ onMounted(() => {
         <div class="background-card-preview" :style="previewStyle(background)" />
         <div class="background-card-copy">
           <strong>{{ background.name }}</strong>
-          <span>{{ background.builtin ? '内置背景' : '已上传' }}</span>
+          <span v-if="background.builtin">内置背景</span>
+          <span v-else-if="background.url_type">URL 背景</span>
+          <span v-else>已上传</span>
         </div>
         <div class="background-card-actions">
           <el-button size="small" :icon="Check" @click="setGlobalBackground(background)">设为全局</el-button>

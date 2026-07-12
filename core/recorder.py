@@ -1,6 +1,7 @@
 #作用是音频录制，对于aliyun asr来说，边录制边stt，但对于其他来说，是先保存成文件再推送给asr模型，通过实现子类的方式（fay_booter.py 上有实现）来管理音频流的来源
 import audioop
 import math
+import os
 import time
 import threading
 from abc import abstractmethod
@@ -19,6 +20,7 @@ import wave
 from core import fay_core
 from core import interact
 from core import stream_manager
+from core.voice_input_mode import is_continuous_mode, is_recording_enabled
 # 麦克风启动时间 (秒)
 _ATTACK = 0.1
 
@@ -99,18 +101,29 @@ class Recorder:
         self.__processing = True
         t = time.time()
         tm = time.time()
+        file_url = None
         if self.ASRMode == "funasr"  or self.ASRMode == "sensevoice" or self.ASRMode == "zhipu":
             file_url = self.save_buffer_to_file(audio_data)
-            self.__aLiNls.send_url(file_url)
+            try:
+                self.__aLiNls.send_url(file_url)
+            except Exception:
+                self.__remove_temp_audio(file_url)
+                raise
         
         # return
         # 等待结果返回
         asr_timeout = 30 if self.ASRMode == "zhipu" else 10 if (self.ASRMode == "funasr" or self.ASRMode == "sensevoice") else 1
         while not iat.done and time.time() - t < asr_timeout:
             time.sleep(0.01)
+        self.__remove_temp_audio(file_url)
         text = iat.finalResults
         util.printInfo(1, self.username, "语音处理完成！ 耗时: {} ms".format(math.floor((time.time() - tm) * 1000)))
         if len(text) > 0:
+            if (not self.is_remote()) and is_continuous_mode(cfg.config):
+                if is_recording_enabled(cfg.config):
+                    self.on_speaking(text)
+                self.__processing = False
+                return
             if cfg.config['source']['wake_word_enabled']:
                 #普通唤醒模式
                 if cfg.config['source']['wake_word_type'] == 'common':
@@ -235,6 +248,13 @@ class Recorder:
                 content = {'Topic': 'human', 'Data': {'Key': 'log', 'Value': ""}, 'Username' : self.username, 'robot': f'{cfg.fay_url}/robot/Normal.jpg'}
                 wsa_server.get_instance().add_cmd(content)
 
+    def __remove_temp_audio(self, file_url):
+        if file_url and os.path.exists(file_url):
+            try:
+                os.remove(file_url)
+            except OSError as error:
+                util.log(2, f"清理ASR临时音频失败: {error}")
+
     def __record(self):   
         try:
             stream = self.get_stream() #通过此方法的阻塞来让程序往下执行
@@ -267,8 +287,10 @@ class Recorder:
                 continue 
             #是否可以拾音,不可以就掉弃录音
             can_listen = True
+            if (not self.is_remote()) and is_continuous_mode(cfg.config) and self.__fay.speaking:
+                can_listen = False
             #没有开唤醒，但面板或数字人正在播音时不能拾音
-            if cfg.config['source']['wake_word_enabled'] == False and self.__fay.speaking == True:
+            elif cfg.config['source']['wake_word_enabled'] == False and self.__fay.speaking == True:
                 can_listen = False
             
             # 允许在播放时继续拾音，以便检测唤醒词实现打断功能

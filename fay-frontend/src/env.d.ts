@@ -4,7 +4,7 @@ export {};
 
 declare global {
   interface ImportMetaEnv {
-    readonly VITE_MCP_API_BASE_URL?: string;
+    readonly VITE_MCP_PROXY_TARGET?: string;
   }
 
   const __FAY_WS_URL__: string;

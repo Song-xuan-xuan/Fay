@@ -153,11 +153,6 @@ async function runExplain(scope: DashboardExplainScope) {
     explanationActions.value = result.actions || [];
     explanationSpoken.value = Boolean(result.spoken);
     explanationSpeaker.value = result.speaker_username || speakUsername.value;
-    if (result.spoken) {
-      ElMessage.success(`已发送给数字人 ${explanationSpeaker.value} 播报`);
-    } else if (result.speak_error) {
-      ElMessage.warning(`解读已生成，数字人播报未触发：${result.speak_error}`);
-    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '生成解读失败');
   } finally {
@@ -190,7 +185,6 @@ onMounted(loadDashboard);
       <div class="dashboard-title-row">
         <div>
           <h2>数字人服务运营大屏 · {{ selectedAttraction }}</h2>
-          <p>汇总数字人服务、用户增长、热门问答与当前景区旅游行为数据</p>
         </div>
         <div class="dashboard-actions">
           <el-radio-group v-model="selectedAttraction" class="attraction-switch" @change="handleAttractionChange">
@@ -208,10 +202,6 @@ onMounted(loadDashboard);
       </div>
 
       <div class="data-source-strip">
-        <span>服务运营数据：系统运行数据</span>
-        <span>用户数据：用户管理模块</span>
-        <span>旅游行为数据：Excel 导入 SQLite</span>
-        <span>当前景区：{{ selectedAttraction }}</span>
         <el-tag v-if="overview?.is_demo" type="warning">演示数据</el-tag>
       </div>
 
@@ -220,7 +210,6 @@ onMounted(loadDashboard);
           <div class="insight-avatar"><Sparkles :size="22" aria-hidden="true" /></div>
           <div>
             <h3>{{ explanationTitle }}</h3>
-            <p class="panel-note">右侧全局数字人负责呈现，文本解读可辅助复盘看板数据。</p>
           </div>
         </div>
         <div class="insight-actions">
@@ -234,7 +223,6 @@ onMounted(loadDashboard);
         <ul v-if="explanationActions.length" class="insight-action-list">
           <li v-for="item in explanationActions" :key="item">{{ item }}</li>
         </ul>
-        <p v-if="explanationSpoken" class="insight-status">已发送给 {{ explanationSpeaker }} 的数字人播报</p>
       </section>
 
       <div class="kpi-grid">

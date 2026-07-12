@@ -42,6 +42,20 @@ def register_background_routes(app):
     @auth_service.require_auth
     @auth_service.require_role('admin')
     def api_upload_background():
+        # 检查是否是 URL 类型
+        if request.is_json or request.content_type == 'application/json':
+            data = request.get_json()
+            url = data.get('url', '').strip()
+            name = data.get('name', '').strip()
+            if not url:
+                return _response_error(ValueError('背景图 URL 不能为空'), 400)
+            try:
+                item = background_service.add_url_background(url, name)
+                return jsonify({'success': True, 'background': item, **_background_payload()})
+            except ValueError as exc:
+                return _response_error(exc, 400)
+
+        # 原有的文件上传逻辑
         background = request.files.get('background')
         if not background or not background.filename:
             return _response_error(ValueError('请选择背景图文件'), 400)

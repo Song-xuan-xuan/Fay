@@ -39,13 +39,16 @@
 }
 
 .markdown-body pre {
+  box-sizing: border-box;
   max-width: 100%;
   overflow: auto;
   border: 1px solid #d9deea;
   border-radius: 8px;
   background: #f8fafc;
   padding: 10px;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-body blockquote {

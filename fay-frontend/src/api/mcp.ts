@@ -1,35 +1,4 @@
-import axios from 'axios';
-import { useAuthStore } from '../stores/auth';
-
-function getMcpApiBaseUrl() {
-  const configured = import.meta.env.VITE_MCP_API_BASE_URL;
-  if (configured) return configured;
-  return `http://${window.location.hostname}:5010`;
-}
-
-const mcpRequest = axios.create({
-  baseURL: getMcpApiBaseUrl(),
-  timeout: 20000,
-  withCredentials: false,
-});
-
-mcpRequest.interceptors.request.use((config) => {
-  const authStore = useAuthStore();
-  if (authStore.token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${authStore.token}`;
-  }
-  return config;
-});
-
-mcpRequest.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    const data = error.response?.data || {};
-    const message = data.error || data.message || data.msg || error.message;
-    return Promise.reject(new Error(message));
-  },
-);
+import request from './request';
 
 export type McpTransport = 'sse' | 'stdio';
 
@@ -92,31 +61,31 @@ export interface McpServerActionResponse {
 }
 
 export function listMcpServers() {
-  return mcpRequest.get('/api/mcp/servers') as Promise<McpServer[]>;
+  return request.get('/api/mcp/servers') as Promise<McpServer[]>;
 }
 
 export function createMcpServer(payload: McpServerPayload) {
-  return mcpRequest.post('/api/mcp/servers', payload, { timeout: 60000 }) as Promise<McpServerActionResponse>;
+  return request.post('/api/mcp/servers', payload, { timeout: 60000 }) as Promise<McpServerActionResponse>;
 }
 
 export function updateMcpServer(serverId: number, payload: McpServerPayload) {
-  return mcpRequest.put(`/api/mcp/servers/${serverId}`, payload, { timeout: 60000 }) as Promise<McpServerActionResponse>;
+  return request.put(`/api/mcp/servers/${serverId}`, payload, { timeout: 60000 }) as Promise<McpServerActionResponse>;
 }
 
 export function deleteMcpServer(serverId: number) {
-  return mcpRequest.delete(`/api/mcp/servers/${serverId}`) as Promise<McpServerActionResponse>;
+  return request.delete(`/api/mcp/servers/${serverId}`) as Promise<McpServerActionResponse>;
 }
 
 export function connectMcpServer(serverId: number) {
-  return mcpRequest.post(`/api/mcp/servers/${serverId}/connect`, {}, { timeout: 90000 }) as Promise<McpServerActionResponse>;
+  return request.post(`/api/mcp/servers/${serverId}/connect`, {}, { timeout: 90000 }) as Promise<McpServerActionResponse>;
 }
 
 export function disconnectMcpServer(serverId: number) {
-  return mcpRequest.post(`/api/mcp/servers/${serverId}/disconnect`) as Promise<McpServerActionResponse>;
+  return request.post(`/api/mcp/servers/${serverId}/disconnect`) as Promise<McpServerActionResponse>;
 }
 
 export function getMcpServerTools(serverId: number) {
-  return mcpRequest.get(`/api/mcp/servers/${serverId}/tools`) as Promise<{
+  return request.get(`/api/mcp/servers/${serverId}/tools`) as Promise<{
     success: boolean;
     message?: string;
     tools: McpTool[];
@@ -124,7 +93,7 @@ export function getMcpServerTools(serverId: number) {
 }
 
 export function getMcpServerResources(serverId: number) {
-  return mcpRequest.get(`/api/mcp/servers/${serverId}/resources`) as Promise<{
+  return request.get(`/api/mcp/servers/${serverId}/resources`) as Promise<{
     success: boolean;
     message?: string;
     resources: McpResource[];
@@ -132,13 +101,13 @@ export function getMcpServerResources(serverId: number) {
 }
 
 export function toggleMcpTool(serverId: number, toolName: string, enabled: boolean) {
-  return mcpRequest.post(`/api/mcp/servers/${serverId}/tools/${encodeURIComponent(toolName)}/toggle`, {
+  return request.post(`/api/mcp/servers/${serverId}/tools/${encodeURIComponent(toolName)}/toggle`, {
     enabled,
   }) as Promise<{ success: boolean; message?: string; tools?: McpTool[] }>;
 }
 
 export function toggleMcpResource(serverId: number, uri: string, enabled: boolean) {
-  return mcpRequest.post(`/api/mcp/servers/${serverId}/resources/toggle`, {
+  return request.post(`/api/mcp/servers/${serverId}/resources/toggle`, {
     uri,
     enabled,
   }) as Promise<{ success: boolean; message?: string; uri?: string; enabled?: boolean }>;

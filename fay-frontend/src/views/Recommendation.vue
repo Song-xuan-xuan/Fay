@@ -163,7 +163,6 @@ onMounted(loadInitialData);
     <div class="dashboard-title-row">
       <div>
         <h2>个性化游览推荐</h2>
-        <p>基于游客兴趣、时间、强度和偏好生成可执行路线与讲解重点。</p>
       </div>
       <div class="dashboard-actions">
         <el-button :icon="RefreshCw" @click="loadInitialData">刷新</el-button>

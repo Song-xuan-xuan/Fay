@@ -1,5 +1,6 @@
 import request, { postLegacyData } from './request';
 import type { ExecutionStatus, MessageHistoryResponse, MessageRecord, SystemStatus, UserRecord } from '../types';
+import type { VoiceInputMode } from '../utils/audioControls';
 
 export interface ChatSession {
   id: number;
@@ -106,7 +107,25 @@ export function getSystemStatus(username: string) {
 }
 
 export function getAudioConfig() {
-  return request.get('/api/get-audio-config') as Promise<{ mic: boolean; speaker: boolean }>;
+  return request.get('/api/get-audio-config') as Promise<{
+    mic: boolean;
+    speaker: boolean;
+    mode?: VoiceInputMode;
+  }>;
+}
+
+export function setMicrophoneState(payload: {
+  enabled: boolean;
+  mode: VoiceInputMode;
+  username: string;
+  session_id: number | null;
+}) {
+  return request.post('/api/toggle-microphone', payload) as Promise<{
+    status: string;
+    enabled: boolean;
+    mode: VoiceInputMode;
+    msg: string;
+  }>;
 }
 
 export function getExecutionStatus(username: string) {

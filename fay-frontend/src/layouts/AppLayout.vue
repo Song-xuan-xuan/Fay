@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type CSSProperties, type Component } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import {
-  AudioLines,
   BookOpen,
   Bot,
   ChevronDown,
@@ -177,15 +176,6 @@ onBeforeUnmount(() => {
     <aside class="workspace-human-stage" aria-label="数字人展示">
       <div class="workspace-human-body">
         <DigitalHumanPanel :view-context="digitalHumanContext" />
-        <div
-          v-if="isMessageRoute"
-          class="voice-orb"
-          :class="{ active: appStore.audioConfig.mic }"
-          aria-label="数字人语音状态"
-          title="数字人语音状态"
-        >
-          <AudioLines :size="24" aria-hidden="true" />
-        </div>
       </div>
     </aside>
 
@@ -199,7 +189,6 @@ onBeforeUnmount(() => {
           <BackgroundSwitcher />
           <span class="status-pill" :class="{ ok: appStore.systemStatus.server }">后端</span>
           <span class="status-pill" :class="{ ok: appStore.systemStatus.digital_human }">数字人</span>
-          <span class="status-pill" :class="{ ok: appStore.systemStatus.remote_audio }">远程音频</span>
           <span class="status-pill live">{{ liveStateText }}</span>
         </div>
       </header>

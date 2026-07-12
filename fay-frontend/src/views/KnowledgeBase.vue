@@ -178,7 +178,6 @@ onMounted(loadFiles);
     <div class="panel-header">
       <div>
         <h2>知识库</h2>
-        <p>管理 library 文档，并通过 yueshen rag 完成索引和检索。</p>
       </div>
       <div class="header-actions">
         <el-button :icon="RefreshCw" :loading="loadingFiles" @click="loadFiles">刷新</el-button>
@@ -249,7 +248,6 @@ onMounted(loadFiles);
           <div class="kb-section-header compact">
             <div>
               <h3>索引</h3>
-              <p>需要 yueshen rag MCP 在线。</p>
             </div>
           </div>
           <div class="side-actions">
@@ -262,7 +260,6 @@ onMounted(loadFiles);
           <div class="kb-section-header compact">
             <div>
               <h3>检索测试</h3>
-              <p>返回最相关的知识片段。</p>
             </div>
           </div>
           <el-input v-model="queryText" type="textarea" :rows="4" placeholder="输入问题" />
@@ -276,7 +273,6 @@ onMounted(loadFiles);
           <div class="kb-section-header compact">
             <div>
               <h3>输出</h3>
-              <p>{{ libraryDir }}</p>
             </div>
           </div>
           <pre class="result-box">{{ resultText }}</pre>

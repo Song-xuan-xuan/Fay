@@ -3,6 +3,7 @@ import time
 import os
 import re
 import asyncio
+import threading
 import pyaudio
 import socket
 import requests
@@ -13,6 +14,7 @@ from utils import util, config_util, stream_util
 from core.wsa_server import MyServer
 from core import wsa_server
 from core import socket_bridge_service
+from core.voice_input_mode import disable_unbound_continuous_recording
 # from llm.nlp_cognitive_stream import save_agent_memory
 
 # 全局变量声明
@@ -44,6 +46,8 @@ class RecorderListener(Recorder):
         self.__device = device
         self.__FORMAT = pyaudio.paInt16
         self.__running = False
+        self.__context_lock = threading.Lock()
+        self.__session_id = None
         self.username = 'User'
         # 这两个参数会在 get_stream 中根据实际设备更新
         self.channels = None
@@ -52,9 +56,20 @@ class RecorderListener(Recorder):
 
     def on_speaking(self, text):
         if len(text) > 1:
-            interact = Interact("mic", 1, {'user': 'User', 'msg': text})
+            with self.__context_lock:
+                username = self.username
+                session_id = self.__session_id
+            data = {'user': username, 'msg': text}
+            if session_id is not None:
+                data['session_id'] = session_id
+            interact = Interact("mic", 1, data)
             util.printInfo(3, "语音", '{}'.format(interact.data["msg"]), time.time())
             feiFei.on_interact(interact)
+
+    def set_interaction_context(self, username='User', session_id=None):
+        with self.__context_lock:
+            self.username = username or 'User'
+            self.__session_id = int(session_id) if session_id is not None else None
 
     def get_stream(self):
         try:
@@ -379,6 +394,10 @@ def start():
     #读取配置
     util.log(1, '读取配置...')
     config_util.load_config()
+    if disable_unbound_continuous_recording(config_util.config):
+        util.log(1, '连续语音模式缺少会话上下文，启动时已自动关闭麦克风')
+        config_util.save_config_sections(config_util.config, ('source',))
+        config_util.load_config()
 
     # 启动阶段预热 embedding 服务（避免首条消息时才初始化维度）
     try:

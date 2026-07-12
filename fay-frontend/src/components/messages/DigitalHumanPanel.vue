@@ -44,6 +44,7 @@ onMounted(() => {
       :key="activeHuman.id"
       :src="activeRenderUrl"
       :title="`${activeHuman.name} 数字人`"
+      allow="autoplay"
       allowtransparency="true"
       sandbox="allow-scripts allow-same-origin"
     />

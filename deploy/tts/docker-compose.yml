@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  fay-tts:
+    image: mzzsfy/tts:latest
+    container_name: fay-tts
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      TZ: Asia/Shanghai
+      DEFAULT_VOICE_NAME: zh-CN-XiaoxiaoNeural
+      DEFAULT_AUDIO_FORMAT: audio-24khz-48kbitrate-mono-mp3
+      TTS_STRICT_MODE: "true"
+      TTS_BING_NO_DNS: "true"

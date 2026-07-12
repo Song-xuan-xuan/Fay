@@ -29,6 +29,8 @@ except Exception:
 import fay_booter
 from tts import tts_voice
 from tts.openai_tts_voices import get_openai_tts_voice_list
+from asr.audio_converter import normalize_audio_for_asr
+from core.voice_input_mode import CONTINUOUS_MODE, VALID_RECORD_MODES, get_record_mode
 from gevent import pywsgi
 try:
     # Use gevent.sleep to avoid blocking the gevent loop; fallback to time.sleep if unavailable
@@ -834,21 +836,24 @@ def api_asr_transcribe():
         return jsonify({'success': False, 'error': '未上传音频文件'}), 400
 
     upload_path = ''
+    normalized_path = ''
     try:
         from asr import zhipu_api
 
         upload_path = _save_asr_upload(request.files['audio'])
-        text = zhipu_api.transcribe_file(upload_path)
+        normalized_path = normalize_audio_for_asr(upload_path)
+        text = zhipu_api.transcribe_file(normalized_path)
         return jsonify({'success': True, 'text': text})
     except Exception as e:
         util.log(1, f'短语音输入识别失败: {e}')
         return jsonify({'success': False, 'error': f'语音识别失败: {e}'}), 500
     finally:
-        if upload_path and os.path.exists(upload_path):
-            try:
-                os.remove(upload_path)
-            except Exception as cleanup_error:
-                util.log(1, f'清理短语音上传文件失败: {cleanup_error}')
+        for temp_path in (normalized_path, upload_path):
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception as cleanup_error:
+                    util.log(1, f'清理短语音上传文件失败: {cleanup_error}')
 
 # 获取指定用户的消息记录（支持分页）
 @__app.route('/api/get-msg', methods=['post'])
@@ -1497,7 +1502,8 @@ def api_get_audio_config():
 
         return jsonify({
             'mic': mic_enabled,
-            'speaker': speaker_enabled
+            'speaker': speaker_enabled,
+            'mode': get_record_mode(config_util.config),
         })
     except Exception as e:
         return jsonify({'mic': False, 'speaker': False, 'error': str(e)}), 500
@@ -1725,6 +1731,13 @@ def setting():
     except Exception as e:
         return f"Error loading settings page: {e}", 500
 
+@__app.route('/login', methods=['get'])
+def login_page():
+    try:
+        return __get_vue_app()
+    except Exception as e:
+        return f"Error loading login page: {e}", 500
+
 @__app.route('/live2d', methods=['get'])
 def live2d():
     try:
@@ -1838,36 +1851,69 @@ def to_stop_talking():
         }), 500
 
 #麦克风开关
+def _parse_microphone_request(data):
+    config_util.load_config()
+    current_enabled = config_util.config.get('source', {}).get('record', {}).get('enabled', False)
+    enabled = data.get('enabled', not current_enabled)
+    if not isinstance(enabled, bool):
+        raise ValueError('enabled必须是布尔值')
+
+    mode = str(data.get('mode') or get_record_mode(config_util.config)).strip().lower()
+    if mode not in VALID_RECORD_MODES:
+        raise ValueError('不支持的语音输入模式')
+
+    username = str(data.get('username') or 'User').strip() or 'User'
+    session_id = data.get('session_id')
+    if enabled and mode == CONTINUOUS_MODE:
+        if session_id in (None, ''):
+            raise ValueError('开启连续对话前请先选择会话')
+        session_id = int(session_id)
+        session = content_db.new_instance().get_chat_session(session_id)
+        if not session or session.get('username') != username:
+            raise ValueError('会话不存在或不属于当前用户')
+    else:
+        session_id = None
+    return enabled, mode, username, session_id
+
+
 @__app.route('/api/toggle-microphone', methods=['POST'])
 @auth_service.require_auth
 @auth_service.require_role('admin')
 def api_toggle_microphone():
     try:
-        data = request.get_json()
-        if data and 'enabled' in data:
-            enabled = data['enabled']
-        else:
-            # 如果未提供enabled参数，则切换当前状态
-            config_util.load_config()
-            enabled = not config_util.config.get('source', {}).get('record', {}).get('enabled', True)
+        data = request.get_json(silent=True) or {}
+        enabled, mode, username, session_id = _parse_microphone_request(data)
 
         # 加载并更新配置
-        config_util.load_config()
         if 'source' not in config_util.config:
             config_util.config['source'] = {}
         if 'record' not in config_util.config['source']:
             config_util.config['source']['record'] = {}
 
         config_util.config['source']['record']['enabled'] = enabled
+        config_util.config['source']['record']['mode'] = mode
         config_util.save_config_sections(config_util.config, ('source',))
         config_util.load_config()
-        _log_admin_action('microphone_toggle', 'source.record.enabled', {'enabled': enabled})
+        if fay_booter.recorderListener is not None:
+            fay_booter.recorderListener.set_interaction_context(
+                username if enabled else 'User',
+                session_id if enabled else None,
+            )
+        _log_admin_action('microphone_toggle', 'source.record', {
+            'enabled': enabled,
+            'mode': mode,
+            'username': username,
+            'session_id': session_id,
+        })
 
         return jsonify({
             'status': 'success',
             'enabled': enabled,
+            'mode': mode,
             'msg': f'麦克风已{"开启" if enabled else "关闭"}'
         }), 200
+    except (TypeError, ValueError) as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 400
     except Exception as e:
         return jsonify({
             'status': 'error',

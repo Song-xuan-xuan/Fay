@@ -5,6 +5,7 @@ export interface BackgroundItem {
   name: string;
   url: string;
   builtin?: boolean;
+  url_type?: boolean;
   filename?: string;
   created_at?: number;
 }
@@ -41,5 +42,12 @@ export function uploadBackground(file: File, name = '') {
   }
   return request.post('/api/backgrounds', body, {
     headers: { 'Content-Type': 'multipart/form-data' },
+  }) as Promise<BackgroundListResponse & { background: BackgroundItem }>;
+}
+
+export function addBackgroundUrl(url: string, name = '') {
+  return request.post('/api/backgrounds', {
+    url: url.trim(),
+    name: name.trim(),
   }) as Promise<BackgroundListResponse & { background: BackgroundItem }>;
 }

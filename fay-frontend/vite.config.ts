@@ -5,6 +5,7 @@ import { BRAND_CONSOLE_NAME } from './src/config/brand';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const flaskTarget = env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+  const mcpTarget = env.VITE_MCP_PROXY_TARGET || 'http://127.0.0.1:5010';
 
   return {
     plugins: [
@@ -19,6 +20,14 @@ export default defineConfig(({ mode }) => {
     server: {
       port: Number(env.VITE_PORT || 5173),
       proxy: {
+        '/api/mcp': {
+          target: mcpTarget,
+          changeOrigin: true,
+        },
+        '/api/kb': {
+          target: mcpTarget,
+          changeOrigin: true,
+        },
         '/api': {
           target: flaskTarget,
           changeOrigin: true,

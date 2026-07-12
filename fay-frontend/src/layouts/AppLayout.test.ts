@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import source from './AppLayout.vue?raw';
+
+const layoutCss = readFileSync(new URL('../styles/layout.css', import.meta.url), 'utf-8');
 
 describe('AppLayout sidebar account menu', () => {
   it('groups profile and logout actions into one account settings menu', () => {
@@ -38,5 +41,15 @@ describe('AppLayout sidebar account menu', () => {
   it('exposes a lightweight background quick switch in the topbar', () => {
     expect(source).toContain('BackgroundSwitcher');
     expect(source).not.toContain('manualBackgroundUrl');
+  });
+
+  it('hides the unused remote audio status from the topbar', () => {
+    expect(source).not.toContain('>远程音频</span>');
+  });
+
+  it('keeps the desktop rail fixed while only the stage content scrolls', () => {
+    expect(layoutCss).toContain('height: 100vh;');
+    expect(layoutCss).toContain('.stage-content');
+    expect(layoutCss).toContain('overflow-y: auto;');
   });
 });

@@ -39,7 +39,7 @@ const resourceActionKey = ref('');
 
 const selectedServer = computed(() => servers.value.find((server) => server.id === selectedId.value) || null);
 const onlineCount = computed(() => servers.value.filter((server) => server.status === 'online').length);
-const mcpApiHost = computed(() => `${window.location.hostname}:5010`);
+const mcpApiHost = computed(() => `${window.location.origin}/api/mcp`);
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -227,7 +227,6 @@ onMounted(() => {
     <div class="panel-header">
       <div>
         <h2>MCP</h2>
-        <p>API: {{ mcpApiHost }} · {{ onlineCount }} / {{ servers.length }} online</p>
       </div>
       <div class="header-actions">
         <el-button :icon="RefreshCw" :loading="loadingServers" @click="loadServers()">刷新</el-button>

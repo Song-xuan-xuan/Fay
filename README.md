@@ -87,11 +87,14 @@ npm run build
 npm run preview
 ```
 
-前端默认通过相对路径访问 Flask API，并通过 `VITE_MCP_API_BASE_URL` 访问 MCP API。需要单独指定 MCP 地址时，可在前端环境变量中配置：
+前端统一使用相对路径访问 API。开发环境由 Vite 将普通 API 转发到 Flask 5000，并将 `/api/mcp/*`、`/api/kb/*` 转发到 MCP 管理服务 5010：
 
 ```env
-VITE_MCP_API_BASE_URL=http://127.0.0.1:5010
+VITE_API_BASE_URL=http://127.0.0.1:5000
+VITE_MCP_PROXY_TARGET=http://127.0.0.1:5010
 ```
+
+生产环境由 Caddy 按相同路径规则转发，浏览器不直接访问 5000 或 5010。参考 `deploy/caddy/Caddyfile`。
 
 ## 登录与用户管理
 

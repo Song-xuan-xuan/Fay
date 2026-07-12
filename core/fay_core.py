@@ -47,6 +47,8 @@ import numpy as np
 
 from ai_module import baidu_emotion
 
+from core.audio_lips import build_energy_lips
+
 from core.action_signal import resolve_action_signal
 
 from core import wsa_server
@@ -2335,6 +2337,9 @@ class FeiFei:
                     if action_signal:
                         content["Data"]["Action"] = action_signal
                         util.printInfo(1, interact.data.get("user"), f"通用动作触发: {action_signal.get('code')}")
+
+                    # Linux VPS has no OVR LipSync; use audio energy so Live2D can still move the mouth.
+                    content["Data"]["Lips"] = build_energy_lips(file_url, audio_length)
 
                     #计算lips
 

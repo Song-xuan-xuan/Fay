@@ -53,7 +53,7 @@ const canSend = computed(() => selectedSessionId.value !== null && (newMessage.v
 const canVoiceInput = computed(() => selectedSessionId.value !== null && appStore.liveState === 1);
 const canControlService = computed(() => authStore.isAdmin);
 const shareSelectedMessages = computed(() => getShareSelectedMessages(messages.value));
-const audioActions = useAudioControlActions(appStore);
+const audioActions = useAudioControlActions(appStore, { selectedUsername, selectedSessionId });
 const { submitMessage } = useMessageSubmit({
   selectedUsername,
   selectedSessionId,
@@ -183,6 +183,13 @@ function refreshMarkdownRenderer() {
 watch(() => appStore.selectedUser, () => {
   appStore.setSelectedSession(null);
   reloadSessionsAndMessages();
+});
+
+watch([selectedUsername, selectedSessionId], ([username, sessionId], [previousUsername, previousSessionId]) => {
+  if (!canControlService.value || (username === previousUsername && sessionId === previousSessionId)) {
+    return;
+  }
+  void audioActions.stopContinuousVoiceForContextChange();
 });
 
 watch(() => appStore.panelReplySeq, () => {

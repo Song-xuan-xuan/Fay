@@ -13,6 +13,10 @@ DEFAULT_ZHIPU_ASR_MODEL = "glm-asr-2512"
 DEFAULT_ZHIPU_ASR_TIMEOUT = 30.0
 
 
+class ZhipuASRError(RuntimeError):
+    pass
+
+
 def _get_timeout():
     raw_value = getattr(cfg, "asr_api_timeout", None)
     if raw_value is None or str(raw_value).strip() == "":
@@ -59,7 +63,8 @@ def transcribe_file(file_path):
 
     if response.status_code != 200:
         util.log(1, f"[Zhipu ASR] 识别失败，状态码: {response.status_code}，响应: {response.text}")
-        return ""
+        detail = (response.text or "未知错误")[:500]
+        raise ZhipuASRError(f"智谱 ASR 识别失败（HTTP {response.status_code}）: {detail}")
     return _parse_text(response)
 
 

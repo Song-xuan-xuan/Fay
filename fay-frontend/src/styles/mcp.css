@@ -38,11 +38,27 @@
   display: none;
 }
 
+.background-upload-section,
+.background-url-section {
+  margin-bottom: 18px;
+  border: 1px solid rgba(0, 122, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.28);
+  padding: 14px;
+}
+
+.background-upload-section h4,
+.background-url-section h4 {
+  margin: 0 0 10px;
+  color: #263449;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .background-upload-row {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto auto;
   gap: 10px;
-  margin-bottom: 14px;
 }
 
 .background-grid {

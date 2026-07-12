@@ -7,6 +7,10 @@ export function getFayWebSocketUrl(defaultPort = '10003'): string {
     return __FAY_WS_URL__;
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+  if (!localHosts.has(window.location.hostname)) {
+    return `${protocol}//${window.location.host}/ws-ui`;
+  }
   return `${protocol}//${window.location.hostname}:${defaultPort}`;
 }
 

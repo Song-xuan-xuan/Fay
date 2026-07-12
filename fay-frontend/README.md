@@ -14,8 +14,11 @@ npm test -- src/utils/messageStream.test.ts
 ## Environment
 
 - `VITE_API_BASE_URL`: Flask backend URL used by Vite proxy. Default: `http://127.0.0.1:5000`.
+- `VITE_MCP_PROXY_TARGET`: MCP management backend URL used by the Vite development proxy for `/api/mcp/*` and `/api/kb/*`. Default: `http://127.0.0.1:5010`.
 - `VITE_WS_URL`: Fay web console WebSocket URL. Default: `ws://<host>:10003`.
 - `VITE_LIVE2D_URL`: Live2D iframe URL. Default: `http://127.0.0.1:5174`. Keep this separate from the Fay console URL to avoid iframe nesting.
+
+Browser API calls stay on relative same-origin paths. Production routing belongs in Caddy or another reverse proxy; do not expose port 5010 directly to the browser.
 
 ## Production Serving
 

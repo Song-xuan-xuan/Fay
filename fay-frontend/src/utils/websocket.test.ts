@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ReconnectingSocket } from './websocket';
+import { ReconnectingSocket, getFayWebSocketUrl } from './websocket';
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -65,5 +65,27 @@ describe('ReconnectingSocket', () => {
       { Username: 'Alice', token: 'token-1' },
       { Username: 'Alice', token: 'token-2' },
     ]);
+  });
+});
+
+describe('getFayWebSocketUrl', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('uses the local Fay websocket port on localhost', () => {
+    vi.stubGlobal('window', {
+      location: new URL('http://localhost:5173/'),
+    });
+
+    expect(getFayWebSocketUrl()).toBe('ws://localhost:10003');
+  });
+
+  it('uses the Caddy websocket path on deployed hosts', () => {
+    vi.stubGlobal('window', {
+      location: new URL('https://fay.songtf.cn/'),
+    });
+
+    expect(getFayWebSocketUrl()).toBe('wss://fay.songtf.cn/ws-ui');
   });
 });

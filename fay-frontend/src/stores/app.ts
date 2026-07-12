@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { getAudioConfig, getChatSessions, getMemberList, getSystemStatus, type ChatSession } from '../api/message';
+import { getAudioConfig, getChatSessions, getMemberList, getSystemStatus, setMicrophoneState, type ChatSession } from '../api/message';
 import { getData, getRunStatus, startLive as startLiveApi, stopLive as stopLiveApi, submitConfig } from '../api/setting';
 import type { LiveState, MessageRecord, SystemStatus, UserRecord, WebsocketPayload } from '../types';
 import { normalizeVoiceOptions } from '../config/openaiTtsVoices';
-import { buildAudioConfigPatch, toggleAudioFlag, type AudioConfig } from '../utils/audioControls';
+import { buildAudioConfigPatch, toggleAudioFlag, type AudioConfig, type AudioFlag } from '../utils/audioControls';
 import { useAuthStore } from './auth';
 import { useLive2dStore } from './live2d';
 
@@ -20,7 +20,7 @@ export const useAppStore = defineStore('app', () => {
   const configEditable = computed(() => liveState.value === 0);
   const voiceList = ref<Array<{ value: string; label: string }>>([]);
   const systemStatus = ref<SystemStatus>({ server: false, digital_human: false, remote_audio: false });
-  const audioConfig = ref({ mic: false, speaker: false });
+  const audioConfig = ref<AudioConfig>({ mic: false, speaker: false, micMode: 'wake' });
   const panelMsg = ref('');
   const latestPanelReply = ref<MessageRecord | null>(null);
   const panelReplySeq = ref(0);
@@ -86,15 +86,37 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function refreshAudioConfig() {
-    audioConfig.value = await getAudioConfig();
+    const result = await getAudioConfig();
+    audioConfig.value = {
+      mic: result.mic,
+      speaker: result.speaker,
+      micMode: result.mode || 'wake',
+    };
   }
 
-  async function toggleAudioConfig(key: keyof AudioConfig) {
+  async function toggleAudioConfig(key: AudioFlag) {
     const previous = audioConfig.value;
     const next = toggleAudioFlag(previous, key);
     audioConfig.value = next;
     try {
       await submitConfig(buildAudioConfigPatch({ [key]: next[key] }));
+    } catch (error) {
+      audioConfig.value = previous;
+      throw error;
+    }
+  }
+
+  async function setContinuousVoice(enabled: boolean, username: string, sessionId: number | null) {
+    const previous = { ...audioConfig.value };
+    audioConfig.value = { ...previous, mic: enabled, micMode: 'continuous' };
+    try {
+      const result = await setMicrophoneState({
+        enabled,
+        mode: 'continuous',
+        username,
+        session_id: sessionId,
+      });
+      audioConfig.value = { ...audioConfig.value, mic: result.enabled, micMode: result.mode };
     } catch (error) {
       audioConfig.value = previous;
       throw error;
@@ -160,6 +182,7 @@ export const useAppStore = defineStore('app', () => {
     refreshSystemStatus,
     refreshAudioConfig,
     toggleAudioConfig,
+    setContinuousVoice,
     startLive,
     stopLive,
     receiveWebsocketPayload,
