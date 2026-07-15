@@ -17,6 +17,7 @@ SERVER_ERROR_STATUS_MIN = 500
 AUTH_HTTP_STATUSES = frozenset((401, 403))
 AUTH_BUSINESS_CODES = frozenset(("401", "403"))
 QUOTA_BUSINESS_CODES = frozenset(("402",))
+QUOTA_HTTP_STATUS = 402
 RATE_LIMIT_STATUS = 429
 RATE_LIMIT_BUSINESS_CODE = "429"
 SUCCESS_BUSINESS_CODE = "200"
@@ -81,6 +82,8 @@ def _raise_for_http_status(status_code):
         return
     if status_code in AUTH_HTTP_STATUSES:
         raise WeatherQueryError(AUTHENTICATION_FAILED_MESSAGE)
+    if status_code == QUOTA_HTTP_STATUS:
+        raise WeatherQueryError(QUOTA_EXHAUSTED_MESSAGE)
     if status_code == RATE_LIMIT_STATUS:
         raise WeatherQueryError(RATE_LIMITED_MESSAGE)
     if status_code >= SERVER_ERROR_STATUS_MIN:

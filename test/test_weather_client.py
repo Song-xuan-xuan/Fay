@@ -174,6 +174,7 @@ class WeatherClientValidationTest(unittest.TestCase):
     def test_maps_http_status_errors(self):
         cases = (
             (401, "天气服务认证失败"),
+            (402, "天气服务配额已用尽"),
             (403, "天气服务认证失败"),
             (429, "天气服务请求过于频繁"),
             (500, "天气服务暂时不可用"),
