@@ -60,7 +60,12 @@ from llm.execution_manager import (
     ExecutionManager, ExecutionState, ExecutionStatus,
     get_execution_manager, _get_llm_instance,
 )
-from llm.mcp_tool_routing import select_initial_knowledge_tool
+from llm.mcp_tool_routing import (
+    InitialToolContext,
+    build_initial_tool_context,
+    resolve_initial_tool_call,
+    select_initial_knowledge_tool,
+)
 
 # 加载配置
 cfg.load_config()
@@ -838,8 +843,38 @@ def _build_dialogue_messages(
     return normalized
 
 
+def _build_weather_planner_messages(
+    state: AgentState,
+) -> List[SystemMessage | HumanMessage | AIMessage]:
+    context = state.get("context", {}) or {}
+    request = state.get("request", "")
+    tool_specs = context.get("tool_registry", {}) or {}
+    planner_system = _merge_system_input(
+        "你是实时天气工具分流器。请严格输出合法 JSON，不要输出其他内容。",
+        "只有用户给出明确城市并询问实时天气时才能调用工具。"
+        "如果没有明确城市，输出 finish 并简短询问用户要查询哪个城市。"
+        "\n输出格式只有两种："
+        '\n1. 查询天气: {"action": "tool", "tool": "query_weather", "args": '
+        '{"city_name": "北京"}}'
+        '\n2. 没有明确城市: {"action": "finish", "message": "请告诉我你要查询的城市。"}'
+        "\n不得编造参数，不得选择下方列表以外的工具。",
+        context.get("system_prompt", ""),
+        _format_context_section("可用天气工具", _format_tools_for_prompt(tool_specs)),
+        _format_context_section("关联记忆", context.get("memory_context", "")),
+        _format_context_section("其他观察", context.get("observation", "")),
+    )
+    conversation = state.get("messages", []) or []
+    username = context.get("username", "User")
+    dialogue = _build_dialogue_messages(conversation, username, fallback_request=request)
+    if not dialogue:
+        dialogue = [HumanMessage(content=request or "请查询天气")]
+    return [SystemMessage(content=planner_system), *dialogue]
+
+
 def _build_planner_messages(state: AgentState) -> List[SystemMessage | HumanMessage | AIMessage]:
     context = state.get("context", {}) or {}
+    if context.get("tool_mode") == "weather":
+        return _build_weather_planner_messages(state)
     system_prompt = context.get("system_prompt", "")
     request = state.get("request", "")
     tool_specs = context.get("tool_registry", {}) or {}
@@ -2361,6 +2396,31 @@ def _auto_reply_after_execution(username, finished_exec_state):
         util.log(1, f"自动回复触发失败: {exc}")
 
 
+def _build_initial_execution_state(
+    base_context: Mapping[str, Any],
+    initial_context: Optional[InitialToolContext],
+    resolved_call: Optional[tuple[str, Dict[str, Any]]],
+) -> Optional[ExecutionState]:
+    """Create an execution state only after first-call authorization succeeds."""
+    if initial_context is None or resolved_call is None:
+        return None
+    tool_name, tool_args = resolved_call
+    return ExecutionState(
+        username=str(base_context.get("username", "")),
+        conversation_id=str(base_context.get("conversation_id", "")),
+        original_request=str(base_context.get("original_request", "")),
+        unverified_response=str(base_context.get("unverified_response", "")),
+        first_plan={"name": tool_name, "args": dict(tool_args)},
+        system_prompt=str(base_context.get("system_prompt", "")),
+        messages_buffer=list(base_context.get("messages_buffer", []) or []),
+        memory_context=str(base_context.get("memory_context", "")),
+        observation=base_context.get("observation"),
+        prestart_context=str(base_context.get("prestart_context", "")),
+        tool_registry=dict(initial_context.execution_tools),
+        on_complete=base_context.get("on_complete"),
+    )
+
+
 def question(content, username, observation=None, images=None):
     """
     处理用户提问并返回回复。工具执行统一走后台线程，所有接口行为一致。
@@ -3106,8 +3166,9 @@ def question(content, username, observation=None, images=None):
             finalize_stream(force_end=True)
         return _end_session_and_remember(full_response_text)
 
-    if select_initial_knowledge_tool(tool_registry, content, content) is None:
-        util.log(1, f"[大小模型] {username}: 未命中知识检索意图，跳过规划器直接回复")
+    initial_context = build_initial_tool_context(tool_registry, content)
+    if initial_context is None:
+        util.log(1, f"[大小模型] {username}: 未命中首轮工具意图，跳过规划器直接回复")
         if not sm.should_stop_generation(username, conversation_id=conversation_id):
             run_direct_llm()
         if not sm.should_stop_generation(username, conversation_id=conversation_id):
@@ -3116,13 +3177,14 @@ def question(content, username, observation=None, images=None):
 
     # 提取知识库摘要给规划器（让它知道能查什么主题）
     knowledge_hint = ""
-    try:
-        resource_text = mcp_runtime.get_all_resource_texts()
-        if resource_text:
-            # 只取前500字符作为摘要，避免占太多 context
-            knowledge_hint = resource_text[:500]
-    except Exception:
-        pass
+    if initial_context.mode == "knowledge":
+        try:
+            resource_text = mcp_runtime.get_all_resource_texts()
+            if resource_text:
+                # 只取前500字符作为摘要，避免占太多 context
+                knowledge_hint = resource_text[:500]
+        except Exception:
+            pass
 
     # 有工具：小模型带流式回调做规划，finish 时直接流出，tool 时提交后台
     plan_state: AgentState = {
@@ -3135,7 +3197,8 @@ def question(content, username, observation=None, images=None):
             "memory_context": memory_context,
             "observation": observation,
             "prestart_context": prestart_context,
-            "tool_registry": tool_registry,
+            "tool_registry": initial_context.planner_tools,
+            "tool_mode": initial_context.mode,
             "username": username,
             "knowledge_hint": knowledge_hint,
         },
@@ -3179,13 +3242,12 @@ def question(content, username, observation=None, images=None):
     first_action = first_decision.get("action")
 
     # ---- 提交后台工具执行的通用函数 ----
-    def _submit_tool_execution(tool_decision, show_plan_msg=True, unverified_response=""):
+    def _submit_tool_execution(resolved_call, show_plan_msg=True, unverified_response=""):
         """提交工具执行到后台，返回 "" 表示等待后台完成。
         unverified_response: 规划器先输出的未核实回复（兜底核实场景传入）。
         """
         nonlocal is_first_sentence
-        t_name = tool_decision.get("tool", "工具")
-        t_args = tool_decision.get("args") or {}
+        t_name, t_args = resolved_call
         util.log(1, f"[大小模型] {username}: 需调用工具 {t_name}，提交后台执行")
 
         if show_plan_msg:
@@ -3197,20 +3259,26 @@ def question(content, username, observation=None, images=None):
             except Exception as e:
                 util.log(1, f"自动回复触发失败: {e}")
 
-        exec_state = ExecutionState(
-            username=username,
-            conversation_id=conversation_id,
-            original_request=content,
-            unverified_response=unverified_response,
-            first_plan={"name": t_name, "args": t_args},
-            system_prompt=system_prompt,
-            messages_buffer=[m.copy() for m in messages_buffer],
-            memory_context=memory_context,
-            observation=observation,
-            prestart_context=prestart_context,
-            tool_registry=tool_registry,
-            on_complete=_on_bg_complete,
+        execution_base = {
+            "username": username,
+            "conversation_id": conversation_id,
+            "original_request": content,
+            "unverified_response": unverified_response,
+            "system_prompt": system_prompt,
+            "messages_buffer": [m.copy() for m in messages_buffer],
+            "memory_context": memory_context,
+            "observation": observation,
+            "prestart_context": prestart_context,
+            "on_complete": _on_bg_complete,
+        }
+        exec_state = _build_initial_execution_state(
+            execution_base,
+            initial_context,
+            resolved_call,
         )
+        if exec_state is None:
+            util.log(1, f"[大小模型] {username}: 首轮工具调用未通过授权")
+            return None
 
         if exec_mgr.submit(exec_state):
             util.log(1, f"[大小模型] {username}: 后台任务已提交，等待执行完成")
@@ -3223,19 +3291,18 @@ def question(content, username, observation=None, images=None):
         return ""
 
     if first_action == "tool":
-        # 不是闲聊 → 走工具执行（规划器只做闲聊判断）
         already_notified = first_decision.get("_tool_early_streamed", False)
-        search_query = (first_decision.get("keyword") or "").strip() or content.strip()
-        initial_tool = select_initial_knowledge_tool(tool_registry, content, search_query)
-        if initial_tool:
-            args = {"query": search_query}
-            if initial_tool == "query_yueshen":
-                args["top_k"] = 3
+        resolved_call = resolve_initial_tool_call(
+            initial_context.allowed_tools,
+            content,
+            first_decision,
+        )
+        if resolved_call:
             return _submit_tool_execution(
-                {"tool": initial_tool, "args": args},
+                resolved_call,
                 show_plan_msg=not already_notified,
             )
-        util.log(1, f"[大小模型] {username}: 未命中知识库检索意图，直接由 LLM 回复")
+        util.log(1, f"[大小模型] {username}: 首轮工具决策未通过授权，直接由 LLM 回复")
         if not sm.should_stop_generation(username, conversation_id=conversation_id):
             run_direct_llm()
         if not sm.should_stop_generation(username, conversation_id=conversation_id):
@@ -3250,10 +3317,11 @@ def question(content, username, observation=None, images=None):
         # 真正的闲聊（问候、确认、简短回答）一般不超过 80 字
         # 超过说明弱模型在 finish 里编造事实性内容，追加工具核实
         # 条件：有任何可用工具 + finish 内容超过 80 字 + 用户消息非纯语气词（>3字）
-        has_tools = bool(tool_registry)
+        has_tools = bool(initial_context.execution_tools)
         user_msg_stripped = content.strip()
-        verify_tool = select_initial_knowledge_tool(tool_registry, content, content)
-        need_verify = (has_tools
+        verify_tool = select_initial_knowledge_tool(initial_context.allowed_tools, content, content)
+        need_verify = (initial_context.mode == "knowledge"
+                       and has_tools
                        and bool(verify_tool)
                        and len(finish_msg) > 80
                        and len(user_msg_stripped) > 3)
@@ -3267,7 +3335,7 @@ def question(content, username, observation=None, images=None):
             if verify_tool == "query_yueshen":
                 verify_args["top_k"] = 3
             return _submit_tool_execution(
-                {"tool": verify_tool, "args": verify_args},
+                (verify_tool, verify_args),
                 show_plan_msg=False,
                 unverified_response=finish_msg,
             )
