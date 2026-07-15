@@ -59,6 +59,17 @@ class McpToolRoutingTests(unittest.TestCase):
 
         self.assertEqual("query_yueshen", result)
 
+    def test_tour_route_questions_keep_course_kb(self):
+        registry = {"kb_search": self.course_tool, "query_yueshen": self.rag_tool}
+
+        result = select_initial_knowledge_tool(
+            registry,
+            "我喜欢自然风光，帮我推荐灵山胜境的游览路线",
+            "自然风光 灵山胜境 游览路线",
+        )
+
+        self.assertEqual("kb_search", result)
+
     def test_scenic_domain_questions_use_course_kb_when_available(self):
         registry = {"kb_search": self.course_tool, "query_yueshen": self.rag_tool}
 
@@ -91,6 +102,15 @@ class McpToolRoutingTests(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_general_questions_do_not_fallback_to_rag(self):
+        result = select_initial_knowledge_tool(
+            {"query_yueshen": self.rag_tool},
+            "帮我写一段欢迎词",
+            "欢迎词",
+        )
+
+        self.assertIsNone(result)
+
+    def test_general_questions_do_not_fallback_to_rag_when_only_rag_available(self):
         result = select_initial_knowledge_tool(
             {"query_yueshen": self.rag_tool},
             "帮我写一段欢迎词",
