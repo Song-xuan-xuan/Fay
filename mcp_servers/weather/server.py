@@ -6,11 +6,11 @@ from typing import Any
 
 import mcp.server.stdio
 from mcp.server import Server
-from mcp.types import TextContent, Tool
+from mcp.types import CallToolResult, TextContent, Tool
 
-try:
+if __package__:
     from . import weather_client
-except ImportError:
+else:
     import weather_client
 
 
@@ -24,10 +24,12 @@ QUERY_WEATHER_TOOL = Tool(
         "properties": {
             "city_name": {
                 "type": "string",
+                "minLength": 1,
                 "description": "要查询天气的城市名称，例如北京或上海。",
             }
         },
         "required": ["city_name"],
+        "additionalProperties": False,
     },
 )
 
@@ -37,22 +39,32 @@ async def handle_list_tools() -> list[Tool]:
     return [QUERY_WEATHER_TOOL]
 
 
+def _text_result(text: str, *, is_error: bool) -> CallToolResult:
+    return CallToolResult(
+        content=[TextContent(type="text", text=text)],
+        isError=is_error,
+    )
+
+
 @server.call_tool()
 async def handle_call_tool(
     name: str,
     arguments: dict[str, Any] | None,
-) -> list[TextContent]:
+) -> CallToolResult:
     if name != "query_weather":
-        return [TextContent(type="text", text=f"未知工具: {name}")]
+        return _text_result(f"未知工具: {name}", is_error=True)
 
     city_name = (arguments or {}).get("city_name", "")
     try:
-        summary = weather_client.query_current_weather(city_name)
+        summary = await asyncio.to_thread(
+            weather_client.query_current_weather,
+            city_name,
+        )
     except weather_client.WeatherQueryError as exc:
-        summary = str(exc)
+        return _text_result(str(exc), is_error=True)
     except Exception:
-        summary = "天气查询失败"
-    return [TextContent(type="text", text=summary)]
+        return _text_result("天气查询失败", is_error=True)
+    return _text_result(summary, is_error=False)
 
 
 async def main() -> None:

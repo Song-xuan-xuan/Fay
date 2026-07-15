@@ -21,11 +21,17 @@
 
 - transport：`stdio`
 - command：Fay 使用的 Python，例如 `.venv\Scripts\python.exe`；若 `python` 已指向 Fay 环境，也可填写 `python`
-- args：`["mcp_servers/weather/server.py"]`
+- args：`mcp_servers/weather/server.py`
 - cwd：Fay 仓库根目录
-- env：
-  - `HEFENG_API`: `<your-api-key>`
-  - `HEFENG_API_HOST`: `<your-api-host>`
+- env：填写 JSON 对象，例如：
+
+  ```json
+  {
+    "HEFENG_API": "<your-api-key>",
+    "HEFENG_API_HOST": "<your-api-host>"
+  }
+  ```
+
 - autostart：开启
 
 保存并连接服务后，在工具列表中启用 `query_weather`。调用时传入城市名称，例如 `{"city_name": "北京"}`。
