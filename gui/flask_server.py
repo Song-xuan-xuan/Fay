@@ -53,6 +53,7 @@ from gui.background_routes import register_background_routes
 from gui.dashboard_routes import register_dashboard_routes
 from gui.digital_human_routes import register_digital_human_routes
 from gui.tourism_recommendation_routes import register_tourism_recommendation_routes
+from gui.vue_spa_routes import register_vue_spa_routes
 from gui.vue_public_assets import FRONTEND_PUBLIC_ROUTE_PREFIX, resolve_vue_public_asset
 import fay_booter
 from flask_httpauth import HTTPBasicAuth
@@ -118,6 +119,8 @@ def __get_vue_app(legacy_template='index.html'):
     if legacy_template == 'index.html':
         return __get_template()
     return render_template(legacy_template)
+
+register_vue_spa_routes(__app, __get_vue_app)
 
 def __get_device_list():
     try:
