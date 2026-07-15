@@ -54,6 +54,11 @@ def _response_error(exc, status=400):
     return jsonify({"success": False, "message": str(exc), "error": str(exc)}), status
 
 
+def _public_digital_human(human):
+    safe_fields = ("name", "type", "render_url", "cover_url")
+    return {field: (human or {}).get(field, "") for field in safe_fields}
+
+
 def _cover_extension(filename):
     safe_name = secure_filename(filename or "")
     _, extension = os.path.splitext(safe_name)
@@ -87,6 +92,15 @@ def register_digital_human_routes(app):
     if app.config.get("FAY_DIGITAL_HUMAN_ROUTES_REGISTERED"):
         return
     app.config["FAY_DIGITAL_HUMAN_ROUTES_REGISTERED"] = True
+
+    @app.route("/api/public/digital-human", methods=["GET"])
+    def api_public_digital_human():
+        try:
+            _load_runtime_config()
+            active = digital_human_service.get_active_digital_human()
+            return jsonify({"success": True, "digital_human": _public_digital_human(active)})
+        except Exception as exc:
+            return _response_error(exc, 500)
 
     @app.route("/api/digital-humans", methods=["GET"])
     @auth_service.require_auth

@@ -23,7 +23,8 @@ request.interceptors.response.use(
       const authStore = useAuthStore();
       authStore.clearSession();
       const current = `${window.location.pathname}${window.location.search}`;
-      if (!window.location.pathname.startsWith('/login')) {
+      const isPublicPage = window.location.pathname === '/';
+      if (!isPublicPage && !window.location.pathname.startsWith('/login')) {
         window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
       }
     }

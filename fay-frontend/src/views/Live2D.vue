@@ -284,9 +284,7 @@ onMounted(loadDigitalHumans);
           @keyup.enter="searchDigitalHumans"
           @clear="searchDigitalHumans"
         />
-        <el-select v-model="live2d.typeFilter" aria-label="数字人类型" @change="searchDigitalHumans">
-          <el-option v-for="item in typeOptions" :key="item.label" :label="item.label" :value="item.value" />
-        </el-select>
+
         <el-button :icon="Search" @click="searchDigitalHumans">搜索</el-button>
         <el-button :icon="Settings" @click="openInteractionSettings">交互设置</el-button>
         <el-button :icon="FolderSync" :loading="importing" @click="importLocalLive2dHumans">导入本地形象</el-button>

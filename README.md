@@ -177,3 +177,15 @@ git diff --cached --name-only -G "TOKEN|PASSWORD|PRIVATE"
 ## 致谢
 
 感谢 Fay 原项目及其相关开源生态提供的数字人、语音、MCP 和工具调用基础能力。本仓库在此基础上补充了面向本地知识库和多用户管理的应用层能力。
+
+## Live2D 与第三方资源声明
+
+本项目使用 Live2D Cubism SDK for Web 实现数字人模型渲染和口型驱动。Cubism SDK、Cubism Core、示例模型及其相关知识产权归 Live2D Inc. 及相应权利人所有。本项目未将第三方角色设计、模型制作或示例动作声明为自主原创成果。
+
+> This content uses sample data owned and copyrighted by Live2D Inc.
+> The sample data are utilized in accordance with terms and conditions set by Live2D Inc.
+> This content itself is created at the author's sole discretion.
+
+本项目的自主开发内容主要包括数字人对话、模型管理、语音驱动、口型同步、知识库检索、用户管理以及前后端集成。参赛或发布时只应携带实际使用且授权条件明确的模型资源，不应分发原始模型下载包或示例配音。
+
+完整的第三方组件、模型来源和使用边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。关于 AI/chatbot 多模型应用的 Cubism SDK 发布许可，见 [Live2D 许可咨询模板](docs/live2d-license-inquiry.md)。

@@ -43,6 +43,20 @@ describe('AppLayout sidebar account menu', () => {
     expect(source).toContain('visiblePrimaryNavItems');
   });
 
+  it('supports a public home route without starting authenticated runtime services', () => {
+    expect(source).toContain("route.name === 'home'");
+    expect(source).toContain('authStore.isAuthenticated');
+    expect(source).toContain('startAuthenticatedRuntime');
+    expect(source).toContain('v-if="authStore.isAuthenticated"');
+    expect(source).toContain('to="/login"');
+  });
+
+  it('reserves the right-side stage area for the homepage digital human', () => {
+    expect(source).toContain("'is-home-route': isHomeRoute");
+    expect(getCssBlock('.immersive-shell.is-home-route')).not.toContain('padding-right: 0;');
+    expect(getCssBlock('.immersive-shell.is-home-route .immersive-workspace')).not.toContain('padding-right: 30px;');
+  });
+
   it('exposes a lightweight background quick switch in the topbar', () => {
     expect(source).toContain('BackgroundSwitcher');
     expect(source).not.toContain('manualBackgroundUrl');
@@ -56,5 +70,17 @@ describe('AppLayout sidebar account menu', () => {
     expect(getCssBlock('.immersive-shell')).toContain('height: 100vh;');
     expect(getCssBlock('.immersive-workspace')).toContain('height: 100vh;');
     expect(getCssBlock('.stage-content')).toContain('overflow-y: auto;');
+  });
+
+  it('hides only the shared stage scrollbar without disabling scrolling', () => {
+    const stageContent = getCssBlock('.stage-content');
+
+    expect(stageContent).toContain('overflow-y: auto;');
+    expect(stageContent).toContain('scrollbar-width: none;');
+    expect(stageContent).toContain('-ms-overflow-style: none;');
+    expect(layoutCss).toContain('.stage-content::-webkit-scrollbar {');
+    expect(layoutCss).toContain('width: 0;');
+    expect(layoutCss).toContain('height: 0;');
+    expect(layoutCss).toContain('background: transparent;');
   });
 });

@@ -176,61 +176,6 @@
   margin-bottom: 0;
 }
 
-/* 趋势柱状图 */
-.trend-chart {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(28px, 1fr));
-  align-items: end;
-  gap: 8px;
-  height: 260px;
-  padding: 20px 4px 28px;
-}
-
-.trend-column {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 4px;
-  height: 100%;
-}
-
-.trend-column small {
-  position: absolute;
-  bottom: -24px;
-  color: var(--color-text-secondary);
-  font-size: 11px;
-}
-
-.bar {
-  width: 10px;
-  min-height: 4px;
-  border-radius: 6px 6px 0 0;
-  transition: opacity 0.2s ease;
-}
-
-.trend-column:hover .bar {
-  opacity: 0.85;
-}
-
-.bar.services {
-  background: var(--color-accent);
-}
-
-.bar.questions {
-  background: var(--color-success);
-}
-
-.trend-chart svg {
-  position: absolute;
-  inset: 20px 10px 36px;
-  width: calc(100% - 20px);
-  height: calc(100% - 56px);
-  pointer-events: none;
-}
-
-.trend-chart polyline,
 .mini-line polyline {
   fill: none;
   stroke: #ff9500;
@@ -284,6 +229,14 @@
 /* 标签页 */
 .dashboard-tabs {
   margin-top: 20px;
+}
+
+.tourism-period-select {
+  width: 190px;
+}
+
+.tourism-kpi-grid {
+  margin-top: 16px;
 }
 
 .split-grid {

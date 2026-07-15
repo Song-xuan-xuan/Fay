@@ -36,6 +36,7 @@ def ensure_tourism_schema(db_path):
         conn.execute('CREATE INDEX IF NOT EXISTS idx_tourism_visit_date ON tourism_visit(visit_date)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_tourism_type ON tourism_visit(attraction_type)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_tourism_name ON tourism_visit(attraction_name)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_tourism_name_date ON tourism_visit(attraction_name, visit_date)')
         conn.commit()
     finally:
         conn.close()
@@ -194,10 +195,14 @@ def latest_source(db_path):
     ensure_tourism_schema(db_path)
     conn = sqlite3.connect(db_path)
     try:
-        latest = _latest_success(conn)
-        return latest or {
-            'row_count': 0, 'record_count': 0, 'import_status': 'not_imported',
-            'date_range': {'start': '', 'end': ''},
-        }
+        return latest_source_from_connection(conn)
     finally:
         conn.close()
+
+
+def latest_source_from_connection(conn):
+    latest = _latest_success(conn)
+    return latest or {
+        'row_count': 0, 'record_count': 0, 'import_status': 'not_imported',
+        'date_range': {'start': '', 'end': ''},
+    }

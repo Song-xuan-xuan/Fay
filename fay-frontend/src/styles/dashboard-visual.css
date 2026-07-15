@@ -1,0 +1,300 @@
+.dashboard-shell {
+  --dashboard-blue: #0067e8;
+  --dashboard-blue-bright: #1687ff;
+  --dashboard-cyan: #36b8ff;
+  --dashboard-ink: #12345a;
+  --dashboard-muted: #5e7892;
+  --dashboard-border: rgba(22, 135, 255, 0.18);
+  --dashboard-shadow: 0 14px 34px rgba(35, 95, 150, 0.1);
+  color: var(--dashboard-ink);
+  background:
+    linear-gradient(rgba(22, 135, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 135, 255, 0.035) 1px, transparent 1px),
+    rgba(248, 252, 255, 0.72);
+  background-size: 28px 28px;
+}
+
+.dashboard-shell .dashboard-title-row {
+  position: relative;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--dashboard-border);
+}
+
+.dashboard-shell .dashboard-title-row > div:first-child {
+  flex: 1 0 100%;
+}
+
+.dashboard-shell .dashboard-actions {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.dashboard-shell .dashboard-title-row::before {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 84px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--dashboard-blue), var(--dashboard-cyan));
+}
+
+.dashboard-shell .dashboard-title-row h2 {
+  color: var(--dashboard-ink);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.dashboard-shell .attraction-switch .el-radio-button__inner,
+.dashboard-shell .range-select .el-input__wrapper,
+.dashboard-shell .dashboard-actions .el-button,
+.dashboard-shell .filter-row .el-input__wrapper,
+.dashboard-shell .filter-row .el-select__wrapper {
+  min-height: 44px;
+  border-color: var(--dashboard-border);
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.dashboard-shell .attraction-switch .el-radio-button__inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  color: var(--dashboard-muted);
+  background: rgba(255, 255, 255, 0.84);
+  border-color: var(--dashboard-border);
+}
+
+.dashboard-shell .attraction-switch .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  border-color: var(--dashboard-blue);
+  background: linear-gradient(135deg, var(--dashboard-blue), var(--dashboard-blue-bright));
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(0, 103, 232, 0.22);
+}
+
+.dashboard-shell .dashboard-actions .el-button:hover,
+.dashboard-shell .dashboard-actions .el-button:focus-visible,
+.dashboard-shell .filter-row .el-button:hover,
+.dashboard-shell .filter-row .el-button:focus-visible {
+  border-color: var(--dashboard-blue-bright);
+  color: var(--dashboard-blue);
+  transform: translateY(-1px);
+}
+
+.dashboard-shell .dashboard-kpi-grid {
+  position: relative;
+  margin-bottom: 22px;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card {
+  position: relative;
+  min-height: 148px;
+  overflow: hidden;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 16px;
+  box-shadow: var(--dashboard-shadow);
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card::before {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  width: 72px;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: var(--dashboard-cyan);
+  content: '';
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global {
+  border-color: rgba(0, 103, 232, 0.28);
+  background: linear-gradient(135deg, #0758ba 0%, #0067e8 58%, #1687ff 100%);
+  box-shadow: 0 16px 34px rgba(0, 103, 232, 0.2);
+  color: #ffffff;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 108px;
+  height: 72px;
+  background: repeating-linear-gradient(135deg, transparent 0 9px, rgba(255, 255, 255, 0.1) 9px 10px);
+  content: '';
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--tourism,
+.dashboard-shell .dashboard-kpi-grid .kpi-card--contextual {
+  border-top: 3px solid var(--dashboard-blue-bright);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global .kpi-source,
+.dashboard-shell .dashboard-kpi-grid .kpi-card--tourism .kpi-source {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global .kpi-source {
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global .kpi-value,
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global .kpi-title,
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global .kpi-value small {
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-icon {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(22, 135, 255, 0.1);
+  color: var(--dashboard-blue);
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-card--global .kpi-icon {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-value {
+  display: block;
+  margin-top: 16px;
+  color: var(--dashboard-ink);
+  font-size: 34px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-value small {
+  margin-left: 5px;
+  color: var(--dashboard-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dashboard-shell .dashboard-kpi-grid .kpi-title {
+  color: var(--dashboard-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dashboard-shell .chart-panel {
+  border: 1px solid var(--dashboard-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--dashboard-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.dashboard-shell .section-head {
+  position: relative;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(22, 135, 255, 0.12);
+}
+
+.dashboard-shell .section-head > svg {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+  border-radius: 10px;
+  background: rgba(22, 135, 255, 0.1);
+  color: var(--dashboard-blue);
+}
+
+.dashboard-shell .chart-panel > h3 {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(22, 135, 255, 0.12);
+  color: var(--dashboard-ink);
+}
+
+.dashboard-shell .rank-row i {
+  background: linear-gradient(90deg, var(--dashboard-blue), var(--dashboard-cyan));
+  box-shadow: 0 3px 10px rgba(22, 135, 255, 0.16);
+}
+
+.dashboard-shell .mini-line {
+  background: linear-gradient(180deg, rgba(22, 135, 255, 0.1), rgba(54, 184, 255, 0.03));
+}
+
+.dashboard-shell .mini-line polyline {
+  stroke: var(--dashboard-cyan);
+  filter: drop-shadow(0 2px 3px rgba(22, 135, 255, 0.25));
+}
+
+.dashboard-shell .topic-item,
+.dashboard-shell .filter-row,
+.dashboard-shell .data-source-strip {
+  border: 1px solid rgba(22, 135, 255, 0.1);
+  background: rgba(235, 246, 255, 0.7);
+}
+
+.dashboard-shell .data-source-strip:empty {
+  display: none;
+}
+
+.dashboard-shell .dashboard-tabs .el-tabs__item.is-active {
+  color: var(--dashboard-blue);
+  font-weight: 700;
+}
+
+.dashboard-shell .dashboard-tabs .el-tabs__active-bar {
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--dashboard-blue), var(--dashboard-cyan));
+}
+
+.dashboard-shell .el-table {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  --el-table-border-color: rgba(22, 135, 255, 0.1);
+  --el-table-header-bg-color: #edf7ff;
+  --el-table-row-hover-bg-color: #f2f9ff;
+}
+
+.dashboard-shell .el-table th.el-table__cell {
+  color: #315a7f;
+  font-weight: 700;
+}
+
+.dashboard-shell .attraction-comparison .el-table__body tr.is-selected-attraction > td.el-table__cell {
+  background: #e5f3ff;
+  color: var(--dashboard-blue);
+  font-weight: 700;
+}
+
+.dashboard-shell .attraction-comparison .el-table__body tr.is-selected-attraction > td:first-child {
+  box-shadow: inset 3px 0 0 var(--dashboard-blue-bright);
+}
+
+.dashboard-shell .chart-panel,
+.dashboard-shell .kpi-card,
+.dashboard-shell .dashboard-actions .el-button,
+.dashboard-shell .attraction-switch .el-radio-button__inner {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.dashboard-shell .chart-panel:hover,
+.dashboard-shell .dashboard-kpi-grid .kpi-card:hover {
+  transform: translateY(-2px);
+}

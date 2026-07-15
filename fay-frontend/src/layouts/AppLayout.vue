@@ -5,7 +5,9 @@ import {
   BookOpen,
   Bot,
   ChevronDown,
+  House,
   LayoutDashboard,
+  LogIn,
   LogOut,
   MessageSquareText,
   Route as RouteIcon,
@@ -36,6 +38,7 @@ const router = useRouter();
 const profileDialogVisible = ref(false);
 
 const navIcons: Record<PrimaryNavigationKey, Component> = {
+  home: House,
   message: MessageSquareText,
   knowledge: BookOpen,
   'digital-human': Bot,
@@ -70,9 +73,12 @@ const selectedUsername = computed(() => appStore.selectedUser?.[1] || 'User');
 const operatorName = computed(() => authStore.user?.username || appStore.selectedUser?.[1] || 'User');
 const operatorAvatar = computed(() => authStore.user?.avatar_path || defaultUserAvatar);
 const isMessageRoute = computed(() => route.name === 'message');
+const isHomeRoute = computed(() => route.name === 'home');
 const digitalHumanContext = computed<DigitalHumanPanelContext>(() => route.name === 'message' ? 'message' : 'default');
+const defaultStageGradient = 'linear-gradient(90deg, rgba(69, 159, 226, 0.62), rgba(255, 255, 255, 0.1) 52%, rgba(255, 255, 255, 0.28))';
+const homeStageGradient = 'linear-gradient(90deg, rgba(117, 196, 244, 0.22), rgba(255, 255, 255, 0.04) 54%, rgba(255, 255, 255, 0.08))';
 const stageBackgroundStyle = computed<CSSProperties>(() => ({
-  backgroundImage: `linear-gradient(90deg, rgba(69, 159, 226, 0.62), rgba(255, 255, 255, 0.1) 52%, rgba(255, 255, 255, 0.28)), url("${backgroundStore.activeBackgroundUrl.replace(/"/g, '\\"')}")`,
+  backgroundImage: `${isHomeRoute.value ? homeStageGradient : defaultStageGradient}, url("${backgroundStore.activeBackgroundUrl.replace(/"/g, '\\"')}")`,
 }));
 
 async function handleLogout() {
@@ -94,8 +100,7 @@ function openProfileDialog() {
   profileDialogVisible.value = true;
 }
 
-onMounted(async () => {
-  await authStore.refreshUser().catch(() => undefined);
+async function startAuthenticatedRuntime() {
   await Promise.allSettled([
     appStore.loadUsers(),
     appStore.loadBootstrapData(),
@@ -109,6 +114,13 @@ onMounted(async () => {
   socket = new ReconnectingSocket(getFayWebSocketUrl(), appStore.receiveWebsocketPayload, 5000, () => authStore.token);
   socket.connect();
   socket.registerUsername(selectedUsername.value);
+}
+
+onMounted(async () => {
+  await authStore.refreshUser().catch(() => undefined);
+  if (authStore.isAuthenticated) {
+    await startAuthenticatedRuntime();
+  }
 });
 
 watch(selectedUsername, (username) => {
@@ -124,7 +136,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="immersive-shell" :class="{ 'is-message-route': isMessageRoute }">
+  <div class="immersive-shell" :class="{ 'is-message-route': isMessageRoute, 'is-home-route': isHomeRoute }">
     <div class="stage-background" :style="stageBackgroundStyle" aria-hidden="true" />
     <aside class="workspace-rail" aria-label="主导航">
       <div class="rail-brand">
@@ -148,7 +160,7 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="rail-account">
-        <el-dropdown trigger="click" placement="top-start" popper-class="account-menu-popper" @command="handleAccountCommand">
+        <el-dropdown v-if="authStore.isAuthenticated" trigger="click" placement="top-start" popper-class="account-menu-popper" @command="handleAccountCommand">
           <button class="account-trigger immersive-account-trigger" type="button" aria-label="账户设置" title="账户设置">
             <img class="account-avatar" :src="operatorAvatar" alt="" />
             <span class="account-copy">
@@ -170,10 +182,14 @@ onBeforeUnmount(() => {
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <RouterLink v-else class="account-trigger immersive-account-trigger guest-login-trigger" to="/login" aria-label="登录" title="登录">
+          <LogIn :size="22" aria-hidden="true" />
+          <span class="account-copy"><strong>登录</strong><small>进入系统</small></span>
+        </RouterLink>
       </div>
     </aside>
 
-    <aside class="workspace-human-stage" aria-label="数字人展示">
+    <aside v-if="!isHomeRoute && authStore.isAuthenticated" class="workspace-human-stage" aria-label="数字人展示">
       <div class="workspace-human-body">
         <DigitalHumanPanel :view-context="digitalHumanContext" />
       </div>
@@ -187,9 +203,12 @@ onBeforeUnmount(() => {
         </div>
         <div class="stage-status-strip" aria-label="系统状态">
           <BackgroundSwitcher />
-          <span class="status-pill" :class="{ ok: appStore.systemStatus.server }">后端</span>
-          <span class="status-pill" :class="{ ok: appStore.systemStatus.digital_human }">数字人</span>
-          <span class="status-pill live">{{ liveStateText }}</span>
+          <template v-if="authStore.isAuthenticated">
+            <span class="status-pill" :class="{ ok: appStore.systemStatus.server }">后端</span>
+            <span class="status-pill" :class="{ ok: appStore.systemStatus.digital_human }">数字人</span>
+            <span class="status-pill live">{{ liveStateText }}</span>
+          </template>
+          <RouterLink v-else class="status-pill guest-topbar-login" to="/login"><LogIn :size="16" /> 登录</RouterLink>
         </div>
       </header>
 
@@ -197,6 +216,6 @@ onBeforeUnmount(() => {
         <RouterView />
       </section>
     </main>
-    <ProfileDialog v-model:visible="profileDialogVisible" />
+    <ProfileDialog v-if="authStore.isAuthenticated" v-model:visible="profileDialogVisible" />
   </div>
 </template>

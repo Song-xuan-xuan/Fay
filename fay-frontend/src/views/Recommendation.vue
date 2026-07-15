@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Clipboard, Download, Printer, RefreshCw, Route, Save, Settings, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/vue';
+import { Clipboard, Download, History, Printer, RefreshCw, Route, Save, Settings, Sparkles, ThumbsDown, ThumbsUp, Trees, Users } from '@lucide/vue';
 import {
   createRecommendation,
   deleteRecommendationPreferences,
@@ -37,26 +37,33 @@ const intensityOptions = [
   { label: '中等', value: 'medium' },
   { label: '高强度', value: 'high' },
 ];
-const indoorOptions = [
-  { label: '不限', value: '' },
-  { label: '优先室内', value: 'indoor' },
-  { label: '优先户外', value: 'outdoor' },
-];
-
 const form = reactive<RecommendationRequest>({
   interests: ['history'],
   free_text: '',
-  arrival_time: '09:00',
-  departure_time: '',
   time_budget_minutes: 120,
   intensity: 'medium',
-  companions: '成人',
-  budget_level: 'medium',
-  start_attraction: '',
-  end_attraction: '',
-  avoid_items: [],
-  indoor_preference: '',
 });
+
+const routePresets = [
+  { title: '历史文化深度游', detail: '约 4 小时 · 中等强度', interests: ['history'], duration: 240, intensity: 'medium', icon: History },
+  { title: '自然风光轻松游', detail: '约 3 小时 · 低强度', interests: ['nature', 'photo'], duration: 180, intensity: 'low', icon: Trees },
+  { title: '亲子家庭经典游', detail: '约 2.5 小时 · 低强度', interests: ['family', 'relax'], duration: 150, intensity: 'low', icon: Users },
+];
+
+function recommendationPayload(): RecommendationRequest {
+  return {
+    interests: [...form.interests],
+    free_text: form.free_text,
+    time_budget_minutes: form.time_budget_minutes,
+    intensity: form.intensity,
+  };
+}
+
+function applyPreset(preset: typeof routePresets[number]) {
+  form.interests = [...preset.interests];
+  form.time_budget_minutes = preset.duration;
+  form.intensity = preset.intensity;
+}
 
 const routes = computed(() => {
   if (!result.value?.main_route) return [];
@@ -80,7 +87,7 @@ async function loadInitialData() {
 async function handleRecommend() {
   loading.value = true;
   try {
-    result.value = await createRecommendation({ ...form, interests: [...form.interests] });
+    result.value = await createRecommendation(recommendationPayload());
     activeRouteName.value = 'main';
     await refreshHistory();
   } catch (error) {
@@ -93,7 +100,7 @@ async function handleRecommend() {
 async function handleSavePreferences() {
   saving.value = true;
   try {
-    await saveRecommendationPreferences({ ...form, interests: [...form.interests] });
+    await saveRecommendationPreferences(recommendationPayload());
     ElMessage.success('偏好已保存');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '保存偏好失败');
@@ -149,7 +156,7 @@ function nodeLabel(stop: RecommendationRoute['stops'][number]) {
 }
 
 function isRecommendationPageActive(path: string) {
-  if (path === '/recommendation') {
+  if (path === '/app/recommendation') {
     return route.path === path;
   }
   return route.path === path || route.path.startsWith(`${path}/`);
@@ -173,18 +180,18 @@ onMounted(loadInitialData);
 
     <nav class="recommendation-page-tabs" aria-label="推荐功能导航">
       <RouterLink
-        to="/recommendation"
+        to="/app/recommendation"
         class="recommendation-page-tab"
-        :class="{ 'is-active': isRecommendationPageActive('/recommendation') }"
+        :class="{ 'is-active': isRecommendationPageActive('/app/recommendation') }"
       >
         <Route :size="16" aria-hidden="true" />
         <span>路线推荐</span>
       </RouterLink>
       <RouterLink
         v-if="authStore.isAdmin"
-        to="/recommendation/manage"
+        to="/app/recommendation/manage"
         class="recommendation-page-tab"
-        :class="{ 'is-active': isRecommendationPageActive('/recommendation/manage') }"
+        :class="{ 'is-active': isRecommendationPageActive('/app/recommendation/manage') }"
       >
         <Settings :size="16" aria-hidden="true" />
         <span>维护推荐</span>
@@ -204,28 +211,33 @@ onMounted(loadInitialData);
             <el-input v-model="form.free_text" type="textarea" :rows="3" placeholder="例如：对历史感兴趣，同行老人较多。" />
           </el-form-item>
           <div class="recommendation-form-grid">
-            <el-form-item label="到达时间"><el-time-picker v-model="form.arrival_time" value-format="HH:mm" format="HH:mm" /></el-form-item>
             <el-form-item label="游览时长"><el-input-number v-model="form.time_budget_minutes" :min="30" :max="480" :step="15" /></el-form-item>
             <el-form-item label="体力强度"><el-select v-model="form.intensity"><el-option v-for="item in intensityOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-            <el-form-item label="室内外"><el-select v-model="form.indoor_preference"><el-option v-for="item in indoorOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-            <el-form-item label="同行人"><el-input v-model="form.companions" /></el-form-item>
-            <el-form-item label="预算"><el-select v-model="form.budget_level"><el-option label="低" value="low" /><el-option label="中" value="medium" /><el-option label="高" value="high" /></el-select></el-form-item>
-            <el-form-item label="起点"><el-input v-model="form.start_attraction" /></el-form-item>
-            <el-form-item label="终点"><el-input v-model="form.end_attraction" /></el-form-item>
           </div>
-          <el-form-item label="避开项目">
-            <el-select v-model="form.avoid_items" multiple allow-create filterable>
-              <el-option label="台阶" value="stairs" />
-              <el-option label="拥挤点位" value="crowd" />
-              <el-option label="长距离步行" value="long_walk" />
-            </el-select>
-          </el-form-item>
           <el-button text type="danger" @click="handleClearPreferences">清除已保存偏好</el-button>
         </el-form>
       </section>
 
       <section class="recommendation-result-panel">
-        <el-empty v-if="!result?.main_route" description="暂无推荐路线" />
+        <section v-if="!result?.main_route" class="recommendation-empty-state">
+          <div class="recommendation-empty-copy">
+            <span class="recommendation-empty-icon"><Sparkles :size="24" /></span>
+            <p class="recommendation-empty-eyebrow">个性化路线</p>
+            <h3>选择一种游览方式</h3>
+            <p>根据兴趣、可用时间和体力偏好，从已维护路线中选出主路线与备选路线。</p>
+          </div>
+          <div class="recommendation-presets">
+            <button v-for="preset in routePresets" :key="preset.title" type="button" @click="applyPreset(preset)">
+              <component :is="preset.icon" :size="20" aria-hidden="true" />
+              <span><strong>{{ preset.title }}</strong><small>{{ preset.detail }}</small></span>
+            </button>
+          </div>
+          <div class="recommendation-empty-summary">
+            <span>已选 {{ form.interests.length }} 个兴趣</span>
+            <span>{{ form.time_budget_minutes }} 分钟</span>
+            <el-button type="primary" :icon="Sparkles" :loading="loading" @click="handleRecommend">生成推荐路线</el-button>
+          </div>
+        </section>
         <template v-else>
           <div class="recommendation-route-tabs">
             <button v-for="item in routes" :key="item.key" type="button" :class="{ active: item.key === activeRouteName }" @click="activeRouteName = item.key">

@@ -1,0 +1,44 @@
+@media (min-width: 1181px) {
+  .dashboard-shell .dashboard-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .dashboard-shell .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-shell .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell .dashboard-title-row {
+    align-items: stretch;
+  }
+
+  .dashboard-shell .dashboard-kpi-grid .kpi-card {
+    min-height: 132px;
+  }
+
+  .dashboard-shell .dashboard-kpi-grid .kpi-value {
+    font-size: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell .chart-panel,
+  .dashboard-shell .kpi-card,
+  .dashboard-shell .dashboard-actions .el-button,
+  .dashboard-shell .attraction-switch .el-radio-button__inner {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .dashboard-shell .chart-panel:hover,
+  .dashboard-shell .dashboard-kpi-grid .kpi-card:hover {
+    transform: none;
+  }
+}

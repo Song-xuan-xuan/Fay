@@ -71,6 +71,11 @@ export interface DashboardTourism {
   details: Array<{ visit_date: string; tourist_id: string; attraction_name: string; attraction_type: string; tourist_segment?: string; total_cost: number; satisfaction: number }>;
   average_satisfaction: number;
   low_satisfaction_count: number;
+  visit_count: number;
+  tourist_count: number;
+  low_satisfaction_rate: number;
+  average_total_cost: number;
+  average_stay_duration: number;
 }
 
 export interface DashboardUsers {

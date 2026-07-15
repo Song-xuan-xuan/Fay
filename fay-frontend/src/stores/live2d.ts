@@ -14,9 +14,15 @@ export const useLive2dStore = defineStore('live2d', () => {
   const lastCommand = ref('');
   const items = ref<DigitalHuman[]>([]);
   const activeId = ref('');
+  const activeItem = ref<DigitalHuman | null>(null);
   const keyword = ref('');
   const typeFilter = ref<DigitalHumanType | ''>('');
-  const activeHuman = computed(() => items.value.find((item) => item.id === activeId.value) || null);
+  const activeHuman = computed(() => {
+    if (activeItem.value?.id === activeId.value) {
+      return activeItem.value;
+    }
+    return items.value.find((item) => item.id === activeId.value) || null;
+  });
   const activeRenderUrl = computed(() => activeHuman.value?.render_url || '');
 
   function updateUrl(url: string) {
@@ -34,7 +40,8 @@ export const useLive2dStore = defineStore('live2d', () => {
     } else {
       items.value[index] = human;
     }
-    if (activeId.value === human.id || !activeId.value) {
+    if (activeId.value === human.id) {
+      activeItem.value = human;
       iframeUrl.value = human.render_url || iframeUrl.value;
     }
   }
@@ -43,9 +50,7 @@ export const useLive2dStore = defineStore('live2d', () => {
     const data = await getDigitalHumans({ keyword: keyword.value, type: typeFilter.value });
     items.value = data.items || [];
     activeId.value = data.active_id || data.active?.id || '';
-    if (data.active && !items.value.some((item) => item.id === data.active?.id)) {
-      items.value.unshift(data.active);
-    }
+    activeItem.value = data.active || items.value.find((item) => item.id === activeId.value) || null;
     if (activeHuman.value?.render_url) {
       iframeUrl.value = activeHuman.value.render_url;
     }
@@ -61,6 +66,7 @@ export const useLive2dStore = defineStore('live2d', () => {
   async function activateDigitalHuman(id: string) {
     const data = await activateDigitalHumanApi(id);
     activeId.value = data.digital_human.id;
+    activeItem.value = data.digital_human;
     upsertHuman(data.digital_human);
     iframeUrl.value = data.digital_human.render_url || iframeUrl.value;
     return data.digital_human;
@@ -78,6 +84,9 @@ export const useLive2dStore = defineStore('live2d', () => {
       activeId.value = nextActiveId;
     } else if (!activeId.value) {
       activeId.value = human.id;
+    }
+    if (activeId.value === human.id) {
+      activeItem.value = human;
     }
     if (activeHuman.value?.render_url) {
       iframeUrl.value = activeHuman.value.render_url;

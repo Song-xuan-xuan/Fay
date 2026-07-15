@@ -23,7 +23,7 @@ const {
 const importTutorialVisible = ref(false);
 
 function isRecommendationPageActive(path: string) {
-  if (path === '/recommendation') {
+  if (path === '/app/recommendation') {
     return route.path === path;
   }
   return route.path === path || route.path.startsWith(`${path}/`);
@@ -54,17 +54,17 @@ async function handleCopyExampleJson() {
 
     <nav class="recommendation-page-tabs" aria-label="推荐功能导航">
       <RouterLink
-        to="/recommendation"
+        to="/app/recommendation"
         class="recommendation-page-tab"
-        :class="{ 'is-active': isRecommendationPageActive('/recommendation') }"
+        :class="{ 'is-active': isRecommendationPageActive('/app/recommendation') }"
       >
         <RouteIcon :size="16" aria-hidden="true" />
         <span>路线推荐</span>
       </RouterLink>
       <RouterLink
-        to="/recommendation/manage"
+        to="/app/recommendation/manage"
         class="recommendation-page-tab"
-        :class="{ 'is-active': isRecommendationPageActive('/recommendation/manage') }"
+        :class="{ 'is-active': isRecommendationPageActive('/app/recommendation/manage') }"
       >
         <Settings :size="16" aria-hidden="true" />
         <span>维护推荐</span>

@@ -22,6 +22,15 @@ DEFAULT_CONFIG = {
     'max_alternatives': 2,
 }
 
+INTEREST_PHRASES = {
+    'history': ('历史', '古迹', '文化', '人文', '博物馆', '建筑'),
+    'nature': ('山水', '山水风景', '自然风光', '自然景观', '风景', '湖光山色', '森林'),
+    'family': ('亲子', '孩子', '儿童', '家庭'),
+    'photo': ('拍照', '摄影', '打卡', '出片'),
+    'indoor': ('室内', '展馆', '避雨'),
+    'relax': ('轻松', '休闲', '慢游', '不累'),
+}
+
 
 def build_recommendation(request_data, templates, stops_by_template, attractions, edges, materials, config=None):
     config = _merged_config(config or {})
@@ -67,7 +76,6 @@ def _prepare_stops(template, request_data, stops_by_template, attractions, edges
             continue
         if is_draft_stop(stop, attraction):
             prepared.append(draft_stop(stop, attraction))
-            risks.append('路线包含待确认点位，已按文档展示但不参与推荐评分。')
             continue
         if not stop.get('enabled'):
             continue
@@ -85,7 +93,7 @@ def _replacement_stop(request_data, prepared, attractions, edges):
     choices = [item for item in attractions.values() if item.get('enabled') and item['id'] not in used]
     if not choices:
         return None
-    interests = _string_set(request_data.get('interests'))
+    interests = _effective_interests(request_data)
     choices.sort(key=lambda item: (-_attraction_score(item, interests), item['name']))
     best = dict(choices[0])
     best['stay_minutes'] = best.get('visit_minutes') or 30
@@ -106,8 +114,6 @@ def _build_timeline(request_data, stops, edges, config, risks):
     for stop in stops:
         score_eligible = stop.get('score_eligible', True)
         walk = _walk_minutes(previous_id, stop['id'], edges, config) if score_eligible else 0
-        if previous_id and score_eligible and walk == config['default_walk_minutes']:
-            risks.append('部分点位步行时间未维护，已使用默认估算。')
         current += walk
         start = current
         current += stay_minutes(stop)
@@ -131,17 +137,31 @@ def _walk_minutes(from_id, to_id, edges, config):
 
 
 def _score_template(request_data, template, stops, timeline, config):
-    interests = _string_set(request_data.get('interests'))
-    tags = _string_set(template.get('interest_tags'))
+    interests = _effective_interests(request_data)
+    template_tags = _string_set(template.get('interest_tags'))
     score_stops = [stop for stop in stops if stop.get('score_eligible', True)]
-    for stop in score_stops:
-        tags.update(_string_set(stop.get('tags')))
-    interest_match = min(1.0, len(tags & interests) / max(1, len(interests))) if interests else 0.5
+    stop_tags = set().union(*[_string_set(stop.get('tags')) for stop in score_stops]) if score_stops else set()
+    route_match = _tag_match(template_tags, interests)
+    stop_match = _tag_match(stop_tags, interests)
+    interest_match = round(route_match * 0.7 + stop_match * 0.3, 3) if interests else 0.5
     satisfaction = _avg([float(item.get('satisfaction') or 0) / 5 for item in score_stops])
     popularity = _avg([float(item.get('popularity') or 0) / 100 for item in score_stops])
     time_fit = _time_fit(request_data.get('time_budget_minutes'), timeline['total_minutes'])
     intensity_fit = _intensity_fit(request_data.get('intensity'), score_stops)
     return _weighted_breakdown(config['weights'], interest_match, satisfaction, popularity, time_fit, intensity_fit)
+
+
+def _effective_interests(request_data):
+    interests = _string_set(request_data.get('interests'))
+    text = str(request_data.get('free_text') or '').lower()
+    for interest, phrases in INTEREST_PHRASES.items():
+        if any(phrase in text for phrase in phrases):
+            interests.add(interest)
+    return interests
+
+
+def _tag_match(tags, interests):
+    return min(1.0, len(tags & interests) / max(1, len(interests))) if interests else 0.0
 
 
 def _weighted_breakdown(weights, interest_match, satisfaction, popularity, time_fit, intensity_fit):
@@ -212,7 +232,7 @@ def _choose_material(stop, options):
 
 
 def _build_dynamic_candidate(request_data, attractions, edges, materials, config):
-    interests = _string_set(request_data.get('interests'))
+    interests = _effective_interests(request_data)
     choices = [item for item in attractions.values() if item.get('enabled')]
     choices.sort(key=lambda item: (-_attraction_score(item, interests), item['name']))
     chosen = [{**item, 'stay_minutes': item.get('visit_minutes') or 30} for item in choices[:3]]

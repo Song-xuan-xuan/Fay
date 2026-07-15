@@ -159,14 +159,14 @@
     width: 100%;
     flex-direction: row;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
   }
 
   .rail-nav-item {
     flex: 1 1 0;
     width: auto;
     min-width: 0;
-    max-width: 72px;
+    max-width: 68px;
     min-height: 54px;
     border-radius: 21px;
   }
@@ -321,10 +321,6 @@
   .background-upload-row,
   .human-card-actions {
     grid-template-columns: 1fr;
-  }
-
-  .trend-chart {
-    height: 220px;
   }
 
   .mcp-layout {

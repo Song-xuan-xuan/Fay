@@ -54,6 +54,43 @@ describe('useLive2dStore digital human state', () => {
     expect(store.items).toHaveLength(1);
   });
 
+  it('keeps the active human without injecting it into filtered results', async () => {
+    vi.mocked(getDigitalHumans).mockResolvedValue({
+      success: true,
+      active_id: 'haru',
+      active: {
+        id: 'haru',
+        name: 'Haru',
+        type: 'live2d',
+        cover_url: '/cover/haru.png',
+        render_url: 'http://127.0.0.1:5174?model=Haru',
+        voice: 'zh-CN-XiaobeiNeural',
+        tags: ['Live2D'],
+        persona: {},
+        enabled: true,
+      },
+      items: [{
+        id: 'mao',
+        name: 'Mao',
+        type: 'live2d',
+        cover_url: '/cover/mao.png',
+        render_url: 'http://127.0.0.1:5174?model=Mao',
+        voice: 'zh-TW-HsiaoYuNeural',
+        tags: ['Live2D'],
+        persona: {},
+        enabled: true,
+      }],
+    });
+    const store = useLive2dStore();
+    store.keyword = 'mao';
+
+    await store.loadDigitalHumans();
+
+    expect(store.items.map((item) => item.id)).toEqual(['mao']);
+    expect(store.activeId).toBe('haru');
+    expect(store.activeHuman?.id).toBe('haru');
+  });
+
   it('updates the active human after activation', async () => {
     vi.mocked(activateDigitalHuman).mockResolvedValue({
       success: true,

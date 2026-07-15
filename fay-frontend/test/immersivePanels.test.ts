@@ -18,4 +18,12 @@ describe('immersive management panel styles', () => {
     expect(componentsCss).toContain('box-shadow: none;');
     expect(componentsCss).toContain('border: 0;');
   });
+
+  it('keeps tall management panels at their content height inside the scrolling stage', () => {
+    const sharedPanelBlock = componentsCss.match(
+      /\.stage-content > \.panel,[\s\S]*?\.stage-content > \.settings-panel\s*\{([\s\S]*?)\n\}/,
+    )?.[1] ?? '';
+
+    expect(sharedPanelBlock).toContain('flex: 0 0 auto;');
+  });
 });

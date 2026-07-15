@@ -8,8 +8,8 @@ describe('RecommendationManage view', () => {
     expect(source).toContain('recommendation-page-tabs');
     expect(source).toContain('路线推荐');
     expect(source).toContain('维护推荐');
-    expect(source).toContain('to="/recommendation"');
-    expect(source).toContain('to="/recommendation/manage"');
+    expect(source).toContain('to="/app/recommendation"');
+    expect(source).toContain('to="/app/recommendation/manage"');
   });
 
   it('offers an import tutorial explaining package fields and weights', () => {

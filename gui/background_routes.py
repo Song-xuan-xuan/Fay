@@ -25,12 +25,10 @@ def register_background_routes(app):
     app.config['FAY_BACKGROUND_ROUTES_REGISTERED'] = True
 
     @app.route('/api/backgrounds', methods=['GET'])
-    @auth_service.require_auth
     def api_list_backgrounds():
         return jsonify(_background_payload())
 
     @app.route('/api/backgrounds/active', methods=['GET'])
-    @auth_service.require_auth
     def api_active_background():
         return jsonify({
             'success': True,

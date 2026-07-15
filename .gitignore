@@ -134,6 +134,10 @@ CLAUDE.md
 docs/superpowers/
 data/
 test/
+!test/
+test/*
+!test/test_competition_asset_compliance.py
+!test/test_digital_human_routes.py
 !fay-frontend/test/
 fay-frontend/test/*
 !fay-frontend/test/MessageDigitalHumanPanel.test.ts

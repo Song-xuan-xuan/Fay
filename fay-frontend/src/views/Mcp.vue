@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, RefreshCw } from '@lucide/vue';
+import { Image as ImageIcon, Plus, RefreshCw, Server } from '@lucide/vue';
 import BackgroundManager from '../components/backgrounds/BackgroundManager.vue';
 import McpServerDetail from '../components/mcp/McpServerDetail.vue';
 import McpServerDialog from '../components/mcp/McpServerDialog.vue';
@@ -23,6 +23,8 @@ import {
   type McpTool,
 } from '../api/mcp';
 
+type SettingsView = 'mcp' | 'backgrounds';
+
 const servers = ref<McpServer[]>([]);
 const tools = ref<McpTool[]>([]);
 const resources = ref<McpResource[]>([]);
@@ -36,6 +38,7 @@ const editingServer = ref<McpServer | null>(null);
 const actionKey = ref('');
 const toolActionKey = ref('');
 const resourceActionKey = ref('');
+const activeSettingsView = ref<SettingsView>('mcp');
 
 const selectedServer = computed(() => servers.value.find((server) => server.id === selectedId.value) || null);
 const onlineCount = computed(() => servers.value.filter((server) => server.status === 'online').length);
@@ -224,19 +227,36 @@ onMounted(() => {
 
 <template>
   <section class="panel mcp-panel">
-    <div class="panel-header">
+    <div class="panel-header settings-page-header">
       <div>
-        <h2>MCP</h2>
+        <h2>系统设置</h2>
       </div>
-      <div class="header-actions">
+      <div v-if="activeSettingsView === 'mcp'" class="header-actions">
         <el-button :icon="RefreshCw" :loading="loadingServers" @click="loadServers()">刷新</el-button>
         <el-button :icon="Plus" type="primary" @click="openCreateDialog">添加</el-button>
       </div>
     </div>
 
-    <BackgroundManager class="mcp-background-manager" />
+    <div class="settings-view-switch-row">
+      <el-radio-group v-model="activeSettingsView" class="settings-view-switch" aria-label="设置分类">
+        <el-radio-button label="mcp">
+          <span class="settings-view-option">
+            <Server :size="17" aria-hidden="true" />
+            <span>MCP 服务</span>
+          </span>
+        </el-radio-button>
+        <el-radio-button label="backgrounds">
+          <span class="settings-view-option">
+            <ImageIcon :size="17" aria-hidden="true" />
+            <span>壁纸库</span>
+          </span>
+        </el-radio-button>
+      </el-radio-group>
+    </div>
 
-    <div class="mcp-layout">
+    <BackgroundManager v-show="activeSettingsView === 'backgrounds'" class="mcp-background-manager" />
+
+    <div v-show="activeSettingsView === 'mcp'" class="mcp-layout">
       <McpServerList
         :servers="servers"
         :selected-id="selectedId"

@@ -52,6 +52,7 @@ from gui.avatar_routes import register_avatar_routes
 from gui.background_routes import register_background_routes
 from gui.dashboard_routes import register_dashboard_routes
 from gui.digital_human_routes import register_digital_human_routes
+from gui.mcp_proxy import register_mcp_proxy
 from gui.tourism_recommendation_routes import register_tourism_recommendation_routes
 from gui.vue_spa_routes import register_vue_spa_routes
 from gui.vue_public_assets import FRONTEND_PUBLIC_ROUTE_PREFIX, resolve_vue_public_asset
@@ -84,6 +85,7 @@ register_avatar_routes(__app)
 register_background_routes(__app)
 register_dashboard_routes(__app)
 register_digital_human_routes(__app)
+register_mcp_proxy(__app)
 register_tourism_recommendation_routes(__app)
 
 def load_users():
@@ -115,7 +117,9 @@ def __get_template():
 def __get_vue_app(legacy_template='index.html'):
     index_file = os.path.join(VUE_DIST_DIR, 'index.html')
     if os.path.exists(index_file):
-        return send_from_directory(VUE_DIST_DIR, 'index.html')
+        response = send_from_directory(VUE_DIST_DIR, 'index.html')
+        response.cache_control.no_store = True
+        return response
     if legacy_template == 'index.html':
         return __get_template()
     return render_template(legacy_template)
@@ -1712,7 +1716,6 @@ def non_streaming_response(last_content, username):
     })
 
 @__app.route('/', methods=['get'])
-@auth.login_required
 def home_get():
     try:
         return __get_vue_app()

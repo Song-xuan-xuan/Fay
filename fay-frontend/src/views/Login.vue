@@ -20,8 +20,8 @@ const submitText = computed(() => (authMode.value === 'login' ? '登录' : '注�
 const submitIcon = computed(() => (authMode.value === 'login' ? LogIn : UserPlus));
 
 function redirectAfterLogin() {
-  const target = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
-  router.replace(target || '/');
+  const target = typeof route.query.redirect === 'string' ? route.query.redirect : '/app/chat';
+  router.replace(target || '/app/chat');
 }
 
 function switchMode(mode: AuthMode) {

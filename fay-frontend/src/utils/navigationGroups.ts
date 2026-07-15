@@ -1,25 +1,27 @@
-export type PrimaryNavigationKey = 'message' | 'knowledge' | 'digital-human' | 'recommendation' | 'data' | 'settings';
+export type PrimaryNavigationKey = 'home' | 'message' | 'knowledge' | 'digital-human' | 'recommendation' | 'data' | 'settings';
 
 export interface PrimaryNavigationGroup {
   key: PrimaryNavigationKey;
   label: string;
   to: string;
   activePaths: string[];
+  public?: boolean;
   requiresRole?: 'admin';
 }
 
 const primaryNavigationGroups: PrimaryNavigationGroup[] = [
-  { key: 'message', label: '对话', to: '/', activePaths: ['/'] },
-  { key: 'knowledge', label: '知识', to: '/knowledge', activePaths: ['/knowledge'], requiresRole: 'admin' },
-  { key: 'digital-human', label: '数字人', to: '/live2d', activePaths: ['/live2d'], requiresRole: 'admin' },
-  { key: 'recommendation', label: '推荐', to: '/recommendation', activePaths: ['/recommendation', '/recommendation/manage'] },
+  { key: 'home', label: '首页', to: '/', activePaths: ['/'], public: true },
+  { key: 'message', label: '对话', to: '/app/chat', activePaths: ['/app/chat'] },
+  { key: 'knowledge', label: '知识', to: '/app/knowledge', activePaths: ['/app/knowledge'], requiresRole: 'admin' },
+  { key: 'digital-human', label: '数字人', to: '/app/live2d', activePaths: ['/app/live2d'], requiresRole: 'admin' },
+  { key: 'recommendation', label: '推荐', to: '/app/recommendation', activePaths: ['/app/recommendation', '/app/recommendation/manage'] },
   {
     key: 'data',
     label: '数据',
-    to: '/dashboard',
-    activePaths: ['/dashboard', '/visitor-report'],
+    to: '/app/dashboard',
+    activePaths: ['/app/dashboard', '/app/visitor-report'],
   },
-  { key: 'settings', label: '设置', to: '/mcp', activePaths: ['/mcp', '/users', '/setting'], requiresRole: 'admin' },
+  { key: 'settings', label: '设置', to: '/app/settings', activePaths: ['/app/settings', '/app/users'], requiresRole: 'admin' },
 ];
 
 export function getPrimaryNavigationGroups() {
@@ -27,10 +29,10 @@ export function getPrimaryNavigationGroups() {
 }
 
 export function isNavigationGroupActive(path: string, group: PrimaryNavigationGroup) {
+  if (group.key === 'home') {
+    return path === '/';
+  }
   return group.activePaths.some((activePath) => {
-    if (activePath === '/') {
-      return path === '/';
-    }
     return path === activePath || path.startsWith(`${activePath}/`);
   });
 }

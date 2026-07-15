@@ -188,6 +188,15 @@
   padding: 30px 34px 28px 30px;
 }
 
+.guest-login-trigger,
+.guest-topbar-login {
+  text-decoration: none;
+}
+
+.guest-login-trigger {
+  color: #25578a;
+}
+
 .workspace-human-stage {
   position: fixed;
   right: 0;
@@ -371,4 +380,12 @@
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stage-content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;
 }
