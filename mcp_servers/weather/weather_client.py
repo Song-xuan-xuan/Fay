@@ -20,6 +20,8 @@ QUOTA_BUSINESS_CODES = frozenset(("402",))
 QUOTA_HTTP_STATUS = 402
 RATE_LIMIT_STATUS = 429
 RATE_LIMIT_BUSINESS_CODE = "429"
+NOT_FOUND_BUSINESS_CODES = frozenset(("204", "404"))
+UNAVAILABLE_BUSINESS_CODES = frozenset(("500",))
 SUCCESS_BUSINESS_CODE = "200"
 
 EMPTY_CITY_MESSAGE = "城市名称不能为空"
@@ -47,11 +49,14 @@ def _normalize_host(raw_host):
     if not host:
         raise WeatherQueryError(MISSING_API_HOST_MESSAGE)
 
+    invalid_host = False
     try:
         parsed = urlsplit(f"{HTTPS_SCHEME}://{host}")
         has_port = parsed.port is not None
-    except ValueError as exc:
-        raise WeatherQueryError(INVALID_API_HOST_MESSAGE) from exc
+    except ValueError:
+        invalid_host = True
+    if invalid_host:
+        raise WeatherQueryError(INVALID_API_HOST_MESSAGE)
 
     labels = host.rstrip(".").split(".")
     labels_are_valid = all(
@@ -91,7 +96,7 @@ def _raise_for_http_status(status_code):
     raise WeatherQueryError(REQUEST_FAILED_MESSAGE)
 
 
-def _raise_for_business_code(payload):
+def _raise_for_business_code(payload, *, not_found_message=None):
     if not isinstance(payload, dict):
         raise WeatherQueryError(INVALID_RESPONSE_MESSAGE)
     code = str(payload.get("code", ""))
@@ -103,10 +108,15 @@ def _raise_for_business_code(payload):
         raise WeatherQueryError(QUOTA_EXHAUSTED_MESSAGE)
     if code == RATE_LIMIT_BUSINESS_CODE:
         raise WeatherQueryError(RATE_LIMITED_MESSAGE)
+    if code in NOT_FOUND_BUSINESS_CODES:
+        message = not_found_message or SERVICE_UNAVAILABLE_MESSAGE
+        raise WeatherQueryError(message)
+    if code in UNAVAILABLE_BUSINESS_CODES:
+        raise WeatherQueryError(SERVICE_UNAVAILABLE_MESSAGE)
     raise WeatherQueryError(BUSINESS_ERROR_MESSAGE)
 
 
-def _request_json(session, url, api_key, params):
+def _request_json(session, url, *, api_key, params, not_found_message=None):
     request_error = None
     try:
         response = session.get(
@@ -130,7 +140,7 @@ def _request_json(session, url, api_key, params):
         invalid_json = True
     if invalid_json:
         raise WeatherQueryError(INVALID_RESPONSE_MESSAGE)
-    _raise_for_business_code(payload)
+    _raise_for_business_code(payload, not_found_message=not_found_message)
     return payload
 
 
@@ -199,15 +209,16 @@ def query_current_weather(city_name, session=None):
     geo_data = _request_json(
         http_session,
         f"{base_url}{GEO_LOOKUP_PATH}",
-        api_key,
-        {"location": city},
+        api_key=api_key,
+        params={"location": city},
+        not_found_message=CITY_NOT_FOUND_MESSAGE.format(city),
     )
     location = _get_location(geo_data, city)
     weather_data = _request_json(
         http_session,
         f"{base_url}{CURRENT_WEATHER_PATH}",
-        api_key,
-        {"location": location["id"]},
+        api_key=api_key,
+        params={"location": location["id"]},
     )
     now = _get_weather_now(weather_data)
     return _format_weather_summary(location["name"], now)

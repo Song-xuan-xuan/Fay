@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from inspect import signature
 from json import JSONDecodeError
 from pathlib import Path
 from unittest.mock import patch
@@ -10,7 +11,11 @@ import requests
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from mcp_servers.weather.weather_client import WeatherQueryError, query_current_weather
+from mcp_servers.weather.weather_client import (
+    WeatherQueryError,
+    _request_json,
+    query_current_weather,
+)
 
 
 API_KEY = "test-api-key"
@@ -20,6 +25,8 @@ API_KEY_HEADER = "X-QW-Api-Key"
 GEO_URL = f"https://{API_HOST}/geo/v2/city/lookup"
 WEATHER_URL = f"https://{API_HOST}/v7/weather/now"
 RESPONSE_HEADER_SECRET = "response-header-secret"
+INVALID_HOST_SECRET = "sensitive-invalid-port"
+INCOMPLETE_MESSAGE = "天气服务响应数据不完整"
 
 
 class FakeResponse:
@@ -52,6 +59,11 @@ def responses_for_stage(stage, terminal_response):
     if stage == "geo":
         return [terminal_response]
     return [FakeResponse(qweather_geo_payload()), terminal_response]
+
+
+def weather_success_responses(**payload):
+    response = FakeResponse({"code": "200", **payload})
+    return responses_for_stage("weather", response)
 
 
 def qweather_geo_payload():
@@ -113,6 +125,7 @@ class WeatherClientValidationTest(unittest.TestCase):
             GEO_URL,
             WEATHER_URL,
             RESPONSE_HEADER_SECRET,
+            INVALID_HOST_SECRET,
         ):
             self.assertNotIn(secret, text)
         if isinstance(value, BaseException):
@@ -136,18 +149,14 @@ class WeatherClientValidationTest(unittest.TestCase):
             with self.assertRaises(WeatherQueryError) as context:
                 query_current_weather(city_name)
 
-        actual_message = str(context.exception)
-        self.assertEqual(expected_message, actual_message)
-        self.assert_safe(actual_message)
+        self.assertEqual(expected_message, str(context.exception))
+        self.assert_safe(context.exception)
 
     def test_queries_geo_then_weather_and_returns_summary(self):
         session = FakeSession(
             [FakeResponse(qweather_geo_payload()), FakeResponse(qweather_now_payload())]
         )
-        environment = {"HEFENG_API": API_KEY, "HEFENG_API_HOST": API_HOST}
-
-        with patch.dict(os.environ, environment, clear=True):
-            result = query_current_weather(" 上海 ", session=session)
+        result = self.query_with_session(session, city_name=" 上海 ")
 
         self.assertEqual(
             "上海：多云，温度 26°C，体感 28°C，湿度 65%，东南风 3级，"
@@ -187,20 +196,39 @@ class WeatherClientValidationTest(unittest.TestCase):
                 )
 
     def test_maps_business_code_errors_at_both_endpoints(self):
-        cases = (
+        common_cases = (
             ("401", "天气服务认证失败"),
             ("403", "天气服务认证失败"),
             ("402", "天气服务配额已用尽"),
             ("429", "天气服务请求过于频繁"),
             ("400", "天气服务返回错误"),
+            ("500", "天气服务暂时不可用"),
         )
         for stage in ("geo", "weather"):
-            for code, expected_message in cases:
+            for code, expected_message in common_cases:
                 with self.subTest(stage=stage, code=code):
                     response = FakeResponse({"code": code, "refer": {}})
                     self.assert_weather_error(
                         responses_for_stage(stage, response), expected_message
                     )
+        not_found_cases = (
+            ("geo", "204", "未找到城市：上海"),
+            ("geo", "404", "未找到城市：上海"),
+            ("weather", "204", "天气服务暂时不可用"),
+            ("weather", "404", "天气服务暂时不可用"),
+        )
+        for stage, code, expected_message in not_found_cases:
+            with self.subTest(stage=stage, code=code):
+                response = FakeResponse({"code": code, "refer": {}})
+                self.assert_weather_error(
+                    responses_for_stage(stage, response), expected_message
+                )
+
+    def test_request_helper_limits_positional_parameters(self):
+        parameters = list(signature(_request_json).parameters.values())
+        positional = [item for item in parameters if "POSITIONAL" in item.kind.name]
+        self.assertLessEqual(len(positional), 2)
+        self.assertTrue(all(item.kind.name == "KEYWORD_ONLY" for item in parameters[2:]))
 
     def test_maps_transport_and_json_errors_at_both_endpoints(self):
         request_details = f"{API_KEY_HEADER}: {API_KEY}; {WEATHER_URL}"
@@ -221,59 +249,31 @@ class WeatherClientValidationTest(unittest.TestCase):
 
     def test_rejects_incomplete_success_payloads(self):
         cases = (
-            ([FakeResponse({"code": "200", "refer": {}})], "天气服务响应数据不完整"),
-            (
-                responses_for_stage("weather", FakeResponse({"code": "200"})),
-                "天气服务响应数据不完整",
-            ),
-            (
-                responses_for_stage(
-                    "weather", FakeResponse({"code": "200", "now": {"temp": "26"}})
-                ),
-                "天气服务响应数据不完整",
-            ),
-            (
-                responses_for_stage(
-                    "weather", FakeResponse({"code": "200", "now": {"text": "多云"}})
-                ),
-                "天气服务响应数据不完整",
-            ),
+            ([FakeResponse({"code": "200", "refer": {}})], INCOMPLETE_MESSAGE),
+            (weather_success_responses(), INCOMPLETE_MESSAGE),
+            (weather_success_responses(now={"temp": "26"}), INCOMPLETE_MESSAGE),
+            (weather_success_responses(now={"text": "多云"}), INCOMPLETE_MESSAGE),
         )
         for responses, expected_message in cases:
             with self.subTest(responses=responses):
                 self.assert_weather_error(responses, expected_message)
 
     def test_rejects_empty_city_name(self):
-        environment = {
-            "HEFENG_API": API_KEY,
-            "HEFENG_API_HOST": API_HOST,
-        }
+        environment = {"HEFENG_API": API_KEY, "HEFENG_API_HOST": API_HOST}
 
         for city_name in ("", "   "):
             with self.subTest(city_name=city_name):
-                self.assert_query_error(
-                    city_name,
-                    environment,
-                    expected_message="城市名称不能为空",
-                )
+                self.assert_query_error(city_name, environment, expected_message="城市名称不能为空")
 
     def test_rejects_missing_api_key(self):
         environment = {"HEFENG_API_HOST": API_HOST}
 
-        self.assert_query_error(
-            "上海",
-            environment,
-            expected_message="未配置环境变量 HEFENG_API",
-        )
+        self.assert_query_error("上海", environment, expected_message="未配置环境变量 HEFENG_API")
 
     def test_rejects_missing_api_host(self):
         environment = {"HEFENG_API": API_KEY}
 
-        self.assert_query_error(
-            "上海",
-            environment,
-            expected_message="未配置环境变量 HEFENG_API_HOST",
-        )
+        self.assert_query_error("上海", environment, expected_message="未配置环境变量 HEFENG_API_HOST")
 
     def test_rejects_non_host_api_host(self):
         invalid_hosts = (
@@ -281,14 +281,12 @@ class WeatherClientValidationTest(unittest.TestCase):
             "api.example.com/v7/weather/now",
             "api.example.com?lang=zh",
             "api.example.com#weather",
+            f"api.example.com:{INVALID_HOST_SECRET}",
         )
 
         for api_host in invalid_hosts:
             with self.subTest(api_host=api_host):
-                environment = {
-                    "HEFENG_API": API_KEY,
-                    "HEFENG_API_HOST": api_host,
-                }
+                environment = {"HEFENG_API": API_KEY, "HEFENG_API_HOST": api_host}
                 self.assert_query_error(
                     "上海",
                     environment,
