@@ -54,6 +54,17 @@ export const useAppStore = defineStore('app', () => {
     selectedSession.value = session;
   }
 
+  function resetUserContext() {
+    users.value = [];
+    selectedUser.value = null;
+    sessions.value = [];
+    selectedSession.value = null;
+    panelMsg.value = '';
+    latestPanelReply.value = null;
+    panelReplySeq.value = 0;
+    systemStatus.value = { server: false, digital_human: false, remote_audio: false };
+  }
+
   async function loadSessions(username?: string) {
     sessions.value = await getChatSessions(username);
     if (selectedSession.value) {
@@ -175,6 +186,7 @@ export const useAppStore = defineStore('app', () => {
     panelReplySeq,
     sessions,
     selectedSession,
+    resetUserContext,
     loadUsers,
     loadSessions,
     setSelectedSession,

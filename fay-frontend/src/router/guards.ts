@@ -16,7 +16,7 @@ export function setupAuthGuards(router: Router) {
     const requiresRole = to.matched.find((record) => record.meta.requiresRole)?.meta.requiresRole;
 
     if (to.name === 'login') {
-      return authStore.isAuthenticated ? { name: 'message' } : true;
+      return authStore.isAuthenticated ? { name: 'home' } : true;
     }
     if (requiresAuth && !(await ensureCurrentUser(authStore))) {
       return { name: 'login', query: { redirect: to.fullPath } };

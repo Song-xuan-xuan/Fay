@@ -20,8 +20,8 @@ const submitText = computed(() => (authMode.value === 'login' ? '登录' : '注�
 const submitIcon = computed(() => (authMode.value === 'login' ? LogIn : UserPlus));
 
 function redirectAfterLogin() {
-  const target = typeof route.query.redirect === 'string' ? route.query.redirect : '/app/chat';
-  router.replace(target || '/app/chat');
+  const target = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+  router.replace(target || '/');
 }
 
 function switchMode(mode: AuthMode) {
@@ -54,12 +54,15 @@ async function submitRegister() {
 
 async function submitAuth() {
   loading.value = true;
+  const action = authMode.value === 'login' ? '登录' : '注册';
   try {
     if (authMode.value === 'login') {
       await submitLogin();
     } else {
       await submitRegister();
     }
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : `${action}失败`);
   } finally {
     loading.value = false;
   }

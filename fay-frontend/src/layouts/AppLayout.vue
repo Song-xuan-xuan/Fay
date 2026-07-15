@@ -15,7 +15,6 @@ import {
   UserCog,
 } from '@lucide/vue';
 import ProfileDialog from '../components/auth/ProfileDialog.vue';
-import BackgroundSwitcher from '../components/backgrounds/BackgroundSwitcher.vue';
 import DigitalHumanPanel from '../components/messages/DigitalHumanPanel.vue';
 import { BRAND_CONSOLE_EYEBROW, BRAND_CONSOLE_NAME, BRAND_NAME } from '../config/brand';
 import { useAppStore } from '../stores/app';
@@ -36,6 +35,10 @@ const backgroundStore = useBackgroundStore();
 const route = useRoute();
 const router = useRouter();
 const profileDialogVisible = ref(false);
+
+if (authStore.isAuthenticated) {
+  appStore.resetUserContext();
+}
 
 const navIcons: Record<PrimaryNavigationKey, Component> = {
   home: House,
@@ -59,16 +62,6 @@ const defaultUserAvatar = DEFAULT_USER_AVATAR_SRC;
 let socket: ReconnectingSocket | null = null;
 let statusTimer: number | null = null;
 
-const liveStateText = computed(() => {
-  const map = {
-    0: '未开启',
-    1: '运行中',
-    2: '正在开启',
-    3: '正在关闭',
-  };
-  return map[appStore.liveState] || '未知';
-});
-
 const selectedUsername = computed(() => appStore.selectedUser?.[1] || 'User');
 const operatorName = computed(() => authStore.user?.username || appStore.selectedUser?.[1] || 'User');
 const operatorAvatar = computed(() => authStore.user?.avatar_path || defaultUserAvatar);
@@ -82,6 +75,7 @@ const stageBackgroundStyle = computed<CSSProperties>(() => ({
 }));
 
 async function handleLogout() {
+  appStore.resetUserContext();
   await authStore.logout();
   await router.push({ name: 'login' });
 }
@@ -117,6 +111,7 @@ async function startAuthenticatedRuntime() {
 }
 
 onMounted(async () => {
+  backgroundStore.loadBackgrounds().catch(() => undefined);
   await authStore.refreshUser().catch(() => undefined);
   if (authStore.isAuthenticated) {
     await startAuthenticatedRuntime();
@@ -200,15 +195,6 @@ onBeforeUnmount(() => {
         <div class="stage-title">
           <p class="eyebrow">{{ BRAND_CONSOLE_EYEBROW }}</p>
           <h1>{{ BRAND_CONSOLE_NAME }}</h1>
-        </div>
-        <div class="stage-status-strip" aria-label="系统状态">
-          <BackgroundSwitcher />
-          <template v-if="authStore.isAuthenticated">
-            <span class="status-pill" :class="{ ok: appStore.systemStatus.server }">后端</span>
-            <span class="status-pill" :class="{ ok: appStore.systemStatus.digital_human }">数字人</span>
-            <span class="status-pill live">{{ liveStateText }}</span>
-          </template>
-          <RouterLink v-else class="status-pill guest-topbar-login" to="/login"><LogIn :size="16" /> 登录</RouterLink>
         </div>
       </header>
 

@@ -21,9 +21,9 @@ describe('public homepage route migration', () => {
     expect(routerSource).toContain("path: '/mcp', redirect: '/app/settings'");
   });
 
-  it('uses /app/chat as the authenticated default destination', () => {
-    expect(guardSource).toContain("{ name: 'message' }");
-    expect(loginSource).toContain("route.query.redirect : '/app/chat'");
-    expect(loginSource).toContain("target || '/app/chat'");
+  it('uses the public homepage as the default post-login destination', () => {
+    expect(guardSource).toContain("authStore.isAuthenticated ? { name: 'home' } : true");
+    expect(loginSource).toContain("route.query.redirect : '/'");
+    expect(loginSource).toContain("target || '/'");
   });
 });

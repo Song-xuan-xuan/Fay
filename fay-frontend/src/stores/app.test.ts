@@ -54,6 +54,36 @@ describe('useAppStore user selection state', () => {
     expect(appStore.selectedUser).toBe(selected);
   });
 
+  it('clears account-scoped state before another login starts', () => {
+    const appStore = useAppStore();
+    const staleSession = {
+      id: 18,
+      user_id: 7,
+      username: 'previous-user',
+      title: '旧会话',
+      message_count: 4,
+    };
+    appStore.users = [[7, 'previous-user', '/old-avatar.png']];
+    appStore.selectedUser = appStore.users[0];
+    appStore.sessions = [staleSession];
+    appStore.selectedSession = staleSession;
+    appStore.panelMsg = '上一用户的消息';
+    appStore.latestPanelReply = { type: 'fay', username: 'previous-user', session_id: 18, content: '旧回复' };
+    appStore.panelReplySeq = 3;
+    appStore.systemStatus = { server: true, digital_human: true, remote_audio: true };
+
+    appStore.resetUserContext();
+
+    expect(appStore.users).toEqual([]);
+    expect(appStore.selectedUser).toBeNull();
+    expect(appStore.sessions).toEqual([]);
+    expect(appStore.selectedSession).toBeNull();
+    expect(appStore.panelMsg).toBe('');
+    expect(appStore.latestPanelReply).toBeNull();
+    expect(appStore.panelReplySeq).toBe(0);
+    expect(appStore.systemStatus).toEqual({ server: false, digital_human: false, remote_audio: false });
+  });
+
   it('normalizes old OpenAI Chinese voice payloads to the full verified Chinese list', async () => {
     vi.mocked(getRunStatus).mockResolvedValue({ status: false });
     vi.mocked(getData).mockResolvedValue({

@@ -23,6 +23,9 @@ describe('AppLayout sidebar account menu', () => {
     expect(source).not.toContain("label: '人设'");
   });
 
+  it('loads the server background for public and authenticated routes', () => {
+    expect(source).toContain('backgroundStore.loadBackgrounds().catch(() => undefined);');
+  });
   it('uses the immersive digital-human workspace shell', () => {
     expect(source).toContain('immersive-shell');
     expect(source).toContain('stage-background');
@@ -51,15 +54,25 @@ describe('AppLayout sidebar account menu', () => {
     expect(source).toContain('to="/login"');
   });
 
+  it('resets stale account context before authenticated children mount and on logout', () => {
+    expect(source).toContain('appStore.resetUserContext();');
+    expect(source.indexOf('appStore.resetUserContext();')).toBeLessThan(source.indexOf('async function startAuthenticatedRuntime'));
+    expect(source.match(/appStore\.resetUserContext\(\);/g)).toHaveLength(2);
+  });
+
   it('reserves the right-side stage area for the homepage digital human', () => {
     expect(source).toContain("'is-home-route': isHomeRoute");
     expect(getCssBlock('.immersive-shell.is-home-route')).not.toContain('padding-right: 0;');
     expect(getCssBlock('.immersive-shell.is-home-route .immersive-workspace')).not.toContain('padding-right: 30px;');
   });
 
-  it('exposes a lightweight background quick switch in the topbar', () => {
-    expect(source).toContain('BackgroundSwitcher');
-    expect(source).not.toContain('manualBackgroundUrl');
+  it('removes the global topbar controls and status pills', () => {
+    expect(source).not.toContain('BackgroundSwitcher');
+    expect(source).not.toContain('stage-status-strip');
+    expect(source).not.toContain('liveStateText');
+    expect(source).not.toContain('>后端</span>');
+    expect(source).not.toContain('>数字人</span>');
+    expect(source).not.toContain('{{ liveStateText }}');
   });
 
   it('hides the unused remote audio status from the topbar', () => {
