@@ -37,6 +37,68 @@ class McpToolRoutingTests(unittest.TestCase):
             select_initial_knowledge_tool(registry, "推荐一条拈花湾游览路线"),
         )
 
+    def test_structured_spot_id_questions_prefer_rag(self):
+        registry = {"kb_search": self.course_tool, "query_yueshen": self.rag_tool}
+
+        result = select_initial_knowledge_tool(
+            registry,
+            "拈花湾禅意小镇 这个景点ID为NH-001的具体位置是什么？",
+            "NH-001 拈花湾禅意小镇 具体位置",
+        )
+
+        self.assertEqual("query_yueshen", result)
+
+    def test_landscape_parameter_questions_prefer_rag(self):
+        registry = {"kb_search": self.course_tool, "query_yueshen": self.rag_tool}
+
+        result = select_initial_knowledge_tool(
+            registry,
+            "我想知道拈花湾禅意小镇的梵天花海的景观参数",
+            "梵天花海 景观参数",
+        )
+
+        self.assertEqual("query_yueshen", result)
+
+    def test_scenic_domain_questions_use_course_kb_when_available(self):
+        registry = {"kb_search": self.course_tool, "query_yueshen": self.rag_tool}
+
+        result = select_initial_knowledge_tool(
+            registry,
+            "灵山胜境有什么看点？",
+            "灵山胜境 看点",
+        )
+
+        self.assertEqual("kb_search", result)
+
+    def test_rag_is_used_when_course_kb_is_unavailable(self):
+        result = select_initial_knowledge_tool(
+            {"query_yueshen": self.rag_tool},
+            "查询梵天花海的景观参数",
+            "梵天花海 景观参数",
+        )
+
+        self.assertEqual("query_yueshen", result)
+
+    def test_general_questions_do_not_use_knowledge_tools_by_default(self):
+        registry = {"kb_search": self.course_tool, "query_yueshen": self.rag_tool}
+
+        result = select_initial_knowledge_tool(
+            registry,
+            "帮我解释一下 Python 的装饰器是什么",
+            "Python 装饰器",
+        )
+
+        self.assertIsNone(result)
+
+    def test_general_questions_do_not_fallback_to_rag(self):
+        result = select_initial_knowledge_tool(
+            {"query_yueshen": self.rag_tool},
+            "帮我写一段欢迎词",
+            "欢迎词",
+        )
+
+        self.assertIsNone(result)
+
     def test_weather_candidates_require_registered_tool_and_explicit_city(self):
         registry = {"query_weather": self.weather_tool}
 
