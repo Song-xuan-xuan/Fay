@@ -1,6 +1,6 @@
 {
     "attribute": {
-        "additional": "Live2D 模型：Hibiki（hibiki）",
+        "additional": "Live2D 模型：Haru",
         "age": "",
         "birth": "",
         "constellation": "",
@@ -9,19 +9,19 @@
         "goal": "互动展示",
         "hobby": "发呆",
         "job": "",
-        "name": "Hibiki",
+        "name": "Haru",
         "position": "数字人",
-        "voice": "zh-CN-XiaoxiaoNeural",
+        "voice": "zh-CN-liaoning-XiaobeiNeural",
         "zodiac": ""
     },
     "auth": {
-        "default_admin_password": "admin123",
+        "default_admin_password": "CHANGE_ME_BEFORE_FIRST_START",
         "default_admin_username": "admin",
         "enabled": true,
         "jwt_expiration_hours": 168
     },
     "digital_humans": {
-        "active_id": "live2d_hibiki",
+        "active_id": "live2d_haru",
         "items": [
             {
                 "cover_url": "https://cdn.jsdelivr.net/gh/Song-xuan-xuan/PicGo_image@main/img/image-20260612161741081.png",

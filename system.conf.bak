@@ -1,8 +1,8 @@
 
 [key]
 #funasr / ali / sensevoice / zhipu
-#建议使用funasr,请依照asr/funasr/README>md的说明启动
-ASR_mode = funasr
+#完整部署默认使用智谱 OpenAI 兼容 ASR
+ASR_mode = zhipu
 #使用zhipu时填写以下智谱GLM-ASR-2512接口配置
 asr_api_url=https://open.bigmodel.cn/api/paas/v4/audio/transcriptions
 asr_api_key=
@@ -19,8 +19,9 @@ ali_nls_app_key=
 
 
 
-#tts类型（切换请重新选择所需要的声音）azure、ali、gptsovits、volcano、gptsovits_v3
-tts_module=ali
+#tts类型（切换请重新选择所需要的声音）azure、ali、gptsovits、volcano、gptsovits_v3、openai
+#完整部署默认连接 deploy/tts/docker-compose.yml 提供的 OpenAI 兼容接口
+tts_module=openai
 openai_tts_speed=1.0
 
 # 微软 文字转语音 服务密钥（非必须，使用可产生不同情绪的音频）https://azure.microsoft.com/zh-cn/services/cognitive-services/text-to-speech/

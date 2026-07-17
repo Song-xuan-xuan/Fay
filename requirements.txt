@@ -31,6 +31,10 @@ langgraph
 bs4
 schedule
 mcp
+fastapi
+uvicorn
+starlette
+sse-starlette
 python-docx
 python-pptx
 chromadb
