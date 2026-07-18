@@ -131,7 +131,7 @@ dmypy.json
 system.conf
 AGENTS.md
 CLAUDE.md
-docs/superpowers/
+/docs/
 data/
 test/
 !test/
