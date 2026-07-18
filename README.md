@@ -1,191 +1,293 @@
-# Fay 数字人知识库助手
+<p align="center">
+  <img src="readme/jingyu-ai-logo.png" width="180" alt="境语AI 品牌标志">
+</p>
 
-本仓库基于 Fay 数字人框架进行二次开发，集成了 Vue 管理端、用户认证、数据看板、消息会话、头像上传、MCP 管理、知识库上传与 RAG 检索等能力。项目主要用于搭建可本地运行的数字人问答平台，并通过 OpenAI 兼容的 Embedding API 构建私有知识库。
+<h1 align="center">境语AI</h1>
 
-## 功能概览
+<p align="center">
+  面向智慧文旅场景的多模态数字人导览与运营平台
+</p>
 
-- 数字人对话：支持文本、语音、图片消息以及数字人播报。
-- 用户体系：支持登录、注册、管理员用户管理、个人中心、头像上传和密码修改。
-- 管理看板：提供运行状态、用户数据、会话数据和系统指标展示。
-- 知识库：管理员可在前端上传文档，触发 ingest 后供 RAG 查询使用。
-- MCP 管理：在 Vue 页面中管理 MCP server、工具、资源和连接状态。
-- API embedding：通过 OpenAI 兼容 `/embeddings` 接口完成知识库向量化，可单独配置模型、base url 和 API key。
+<p align="center">
+  <a href="#快速开始"><img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12"></a>
+  <a href="#技术架构"><img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3"></a>
+  <a href="#技术架构"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5"></a>
+  <a href="#mcp-与知识库"><img src="https://img.shields.io/badge/MCP-Tool%20Ecosystem-20232A" alt="MCP Tool Ecosystem"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-2C3E50" alt="GPL-3.0 License"></a>
+</p>
+
+境语AI将数字人交互、文旅路线推荐、景区数据分析、游客报告、知识库检索与 MCP 工具调用整合在同一套平台中。普通用户可以通过文本、语音和图片完成咨询，系统结合大模型、景区知识与实时工具生成回答，并通过数字人进行语音播报；管理员负责维护路线、知识库、数字人和用户数据，形成从游客服务到运营分析的完整闭环。
+
+## 平台亮点
+
+| 能力 | 普通登录用户 | 管理员 |
+| --- | --- | --- |
+| 多模态交互 | 文本、语音、图片问答与会话历史 | 连续语音、麦克风和扬声器配置 |
+| 数字人讲解 | 当前数字人展示、语音播报与口型驱动 | 数字人搜索、预览、切换和资源管理 |
+| 路线推荐 | 根据兴趣、时长和同行人生成主路线与备选路线 | 维护景点、路线模板、停靠点、讲解素材和推荐策略 |
+| 智慧看板 | 查看景区指标、趋势和智能解读 | 数据重新导入、游客感受度与运营洞察 |
+| 游客报告 | 无独立管理入口 | 生成、查看、导出报告并维护建议处理状态 |
+| 知识增强 | 在对话中使用管理员已启用的知识与实时工具 | 上传文档、建立索引、执行 RAG 查询和管理 MCP 工具 |
+| 用户体系 | 注册、登录、个人资料和密码管理 | 用户、角色、状态、密码重置及审核日志管理 |
+
+## 业务闭环
+
+```mermaid
+flowchart LR
+    A[游客偏好采集] --> B[个性化路线推荐]
+    B --> C[景点知识与讲解素材]
+    C --> D[数字人多模态讲解]
+    D --> E[反馈与会话沉淀]
+    E --> F[数据看板与游客报告]
+    F --> G[运营策略优化]
+    G --> B
+```
+
+境语AI不是单一聊天页面，而是一套围绕文旅服务流程构建的应用系统：推荐结果可以进入讲解场景，游客互动可以沉淀为分析数据，运营策略又可以继续改善下一次推荐。
+
+## 核心功能
+
+### 多模态对话与数字人
+
+- 支持文本、手动语音和图片消息。
+- 支持会话创建、切换、重命名、删除和历史记录。
+- 支持消息选择、分享图预览与下载。
+- 支持 TTS 语音合成、数字人播报和跨平台口型数据生成。
+- 支持管理员管理数字人资源并切换当前激活形象。
+
+### 智慧路线推荐
+
+- 根据兴趣主题、游览时长、同行人员和游览强度保存游客偏好。
+- 同时生成主路线和备选路线，并展示停靠点与讲解内容。
+- 支持复制讲解话术、打印、JSON 导出及采纳或拒绝反馈。
+- 提供景点、路线模板、停靠点、讲解素材和推荐策略维护工作台。
+- 支持推荐数据导入导出和推荐日志查询。
+
+### 数据看板与游客报告
+
+- 展示客流、服务、景点和体验趋势等指标。
+- 支持景区切换、条件筛选、智能解读和语音播报。
+- 管理员可以根据游客会话与行为生成结构化游客报告。
+- 游客报告支持导出、运营建议维护和处理状态跟踪。
+
+### MCP 与知识库
+
+- 管理 MCP 服务连接、工具状态和 Resource 注入开关。
+- 支持天气、课程知识、日程等工具按需接入。
+- 支持知识库文件上传、删除、状态检查和增量索引。
+- 支持基于 OpenAI 兼容 Embedding API 的文档向量化与 RAG 查询。
+- 支持重建索引，并对破坏性管理操作进行权限隔离。
+
+## 技术架构
+
+```mermaid
+flowchart TB
+    subgraph Client[交互层]
+        Web[Vue 3 管理与体验端]
+        Voice[麦克风与扬声器]
+        Avatar[Live2D 数字人渲染]
+    end
+
+    subgraph Gateway[应用层]
+        API[Python Web API]
+        WS[实时消息与数字人 WebSocket]
+        Auth[认证、角色与审核]
+    end
+
+    subgraph Intelligence[智能服务层]
+        LLM[OpenAI 兼容 LLM]
+        ASR[语音识别]
+        TTS[语音合成]
+        Embed[Embedding 服务]
+        MCP[MCP 工具与 Resource]
+    end
+
+    subgraph Domain[业务与数据层]
+        Chat[会话与消息]
+        Recommend[景点与路线推荐]
+        Dashboard[看板与游客报告]
+        KB[文档知识库与向量索引]
+    end
+
+    Web --> API
+    Web <--> WS
+    Voice --> ASR
+    TTS --> Voice
+    WS --> Avatar
+    API --> Auth
+    API --> Chat
+    API --> Recommend
+    API --> Dashboard
+    Chat --> LLM
+    LLM <--> MCP
+    MCP --> KB
+    KB --> Embed
+    LLM --> TTS
+```
+
+### 技术栈
+
+| 层级 | 主要技术 |
+| --- | --- |
+| 前端 | Vue 3、TypeScript、Vite、Element Plus、Pinia、ECharts、GSAP |
+| 后端 | Python 3.12、Flask、WebSocket |
+| 智能服务 | OpenAI 兼容 LLM、ASR、TTS、Embedding API |
+| 工具生态 | Model Context Protocol、RAG、可配置 MCP Server |
+| 数字人 | Live2D Cubism SDK for Web、音频驱动口型 |
+| 部署 | Python 虚拟环境、Node.js 构建、Docker Compose TTS |
 
 ## 项目结构
 
-```text
-.
-├── main.py                 # 主启动入口
-├── fay_booter.py           # Fay 服务编排与启动逻辑
-├── core/                   # 认证、会话、看板、核心交互服务
-├── gui/                    # Flask 后端接口与传统页面
-├── fay-frontend/           # Vue 3 + Vite 前端管理端
-├── faymcp/                 # MCP 服务、MCP API 与知识库路由
-├── mcp_servers/            # 本地 MCP server 示例与实现
-├── llm/ asr/ tts/          # LLM、语音识别、语音合成适配
-├── utils/                  # 配置、embedding、图片存储等工具
-├── config/                 # 配置相关模块
-└── readme/                 # README 图片资源
-```
+| 目录 | 职责 |
+| --- | --- |
+| `main.py`、`core/`、`gui/` | 应用入口、业务服务、认证和 Web API |
+| [前端源码目录](./fay-frontend/) | Vue 3 管理与体验端 |
+| [MCP 管理模块](./faymcp/) | MCP 管理、工具注册和知识库路由 |
+| `mcp_servers/` | 天气、课程知识、日程等 MCP 服务 |
+| `llm/`、`asr/`、`tts/` | 大模型、语音识别和语音合成适配 |
+| `deploy/`、`config/`、`utils/` | 部署样例、配置辅助和通用能力 |
 
-运行期数据通常会生成到 `memory/`、`logs/`、`cache_data/`、`library/` 等目录，这些内容不应提交到 Git。
+运行时生成的知识库、日志、缓存、模型和用户数据不属于源码，不应直接提交到公开仓库。
 
-## 环境要求
+## 快速开始
+
+### 环境要求
 
 - Python 3.12
-- Node.js 18+，用于运行 `fay-frontend`
-- Windows、macOS 或 Ubuntu
-- Ubuntu 需要先安装音频编译依赖：
+- Node.js 20 及 npm（推荐环境）
+- Windows、macOS 或 Linux；服务器部署已在 Ubuntu 22.04 上验证
+- Docker 与 Docker Compose，仅在使用容器化 TTS 时需要
+- Ubuntu 需要安装 `build-essential` 和 `portaudio19-dev`
 
-```bash
-sudo apt update
-sudo apt install build-essential portaudio19-dev
-```
+### 1. 创建 Python 虚拟环境
 
-## 后端启动
-
-首次运行建议创建虚拟环境并安装依赖：
+Windows PowerShell：
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-如果使用本地配置，将 `system.conf.bak` 复制为 `system.conf`，并按需配置 LLM、ASR、TTS、认证和 embedding 参数：
+Ubuntu 或 macOS：
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2. 创建本地配置
+
+Windows PowerShell：
 
 ```powershell
 Copy-Item system.conf.bak system.conf
+```
+
+Ubuntu 或 macOS：
+
+```bash
+cp system.conf.bak system.conf
+```
+
+在 `system.conf` 中配置实际使用的 LLM、ASR、TTS 和 Embedding 服务。项目支持 OpenAI 兼容接口，真实 API Key 只应保存在本地配置中。
+
+`config.json` 中的管理员初始密码是公开占位值，不应替换为长期密码后提交。首次启动必须仅限本机访问；启动后使用其中的初始账号登录，立即在个人设置或用户管理中修改密码。管理员写入数据库后，后续启动不会根据配置重复创建。
+
+### 3. 构建前端
+
+进入上方链接的“前端源码目录”，然后执行：
+
+```bash
+npm ci
+npm run build
+```
+
+构建完成后返回项目根目录。
+
+### 4. 启动应用
+
+```bash
 python main.py start
 ```
 
-也可以使用配置中心启动：
+启动后访问：
 
-```powershell
-python main.py start -config_center <配置中心项目ID>
+```text
+http://127.0.0.1:5000
 ```
 
-默认服务端口：
+### 5. 可选：启动容器化 TTS
 
-- Flask 管理接口：`http://127.0.0.1:5000`
-- MCP 管理服务：`http://127.0.0.1:5010`
-- 数字人 WebSocket：`10002`
-- 前端数据 WebSocket：`10003`
+```bash
+docker compose -f deploy/tts/docker-compose.yml up -d
+```
 
-## 前端启动
+该服务默认只监听 `127.0.0.1:8080`，由主程序通过 OpenAI 兼容接口调用。
 
-```powershell
-cd fay-frontend
-npm install
+### 本地服务端口
+
+| 端口 | 用途 | 建议 |
+| --- | --- | --- |
+| `5000` | 应用页面与主要 API | 本地访问入口 |
+| `5010` | MCP 管理与知识库 API | 仅供应用内部访问 |
+| `10002` | 数字人实时消息 WebSocket | 按 renderer 部署方式限制访问 |
+| `10003` | 前端实时数据 WebSocket | 由前端连接 |
+| `8080` | 可选容器化 TTS | 默认仅监听 `127.0.0.1` |
+
+### 前端开发模式
+
+进入“前端源码目录”并安装依赖后执行：
+
+```bash
 npm run dev
 ```
 
-前端开发服务启动后，按终端输出的 Vite 地址访问。生产构建命令：
+开发环境由 Vite 将普通 API 转发到应用服务，并将 MCP 与知识库请求转发到 MCP 管理服务。具体目标地址可通过前端环境变量调整。
 
-```powershell
-npm run build
-npm run preview
-```
+## 配置说明
 
-前端统一使用相对路径访问 API。开发环境由 Vite 将普通 API 转发到 Flask 5000，并将 `/api/mcp/*`、`/api/kb/*` 转发到 MCP 管理服务 5010：
+| 配置类别 | 说明 |
+| --- | --- |
+| LLM | 模型名称、OpenAI 兼容 Base URL 和 API Key |
+| ASR | 语音识别模式、模型和服务凭据 |
+| TTS | 合成模块、音色、Base URL 和音频格式 |
+| Embedding | 向量模型、Base URL 和 API Key |
+| MCP | 服务命令、连接方式、工具及 Resource 状态 |
+| 数字人 | renderer 地址、模型资源目录和 WebSocket 地址 |
 
-```env
-VITE_API_BASE_URL=http://127.0.0.1:5000
-VITE_MCP_PROXY_TARGET=http://127.0.0.1:5010
-```
+仓库提供 `system.conf.bak` 作为配置样例。`system.conf`、`.env`、真实凭据和个人运行数据已经或应当保持在 Git 忽略范围内。
 
-生产环境由 Caddy 按相同路径规则转发，浏览器不直接访问 5000 或 5010。参考 `deploy/caddy/Caddyfile`。
+## 源码与资源边界
 
-## 登录与用户管理
+为避免公开分发未经授权的模型、数据和凭据，以下内容不随 GitHub 源码仓库提供：
 
-认证开启后，系统会在没有管理员时创建默认管理员：
+- Live2D renderer 与数字人模型资源。
+- 景区原始知识文档、课程包和旅游数据集。
+- 已建立的向量索引、会话记录和用户数据库。
+- 推荐路线的私有初始化数据。
+- API Key、服务器凭据和生产环境配置。
 
-```text
-用户名：admin
-密码：admin123
-```
+比赛或完整功能部署可以通过独立资源包补充已获授权的模型与数据，并保持项目约定的相对目录结构。实际交付范围和许可限制以 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 为准。
 
-首次进入后请在个人中心或管理员用户管理中修改密码。普通用户可注册账号，管理员可在用户管理页面维护用户、重置密码、启用或停用账号。
+## 安全说明
 
-## 知识库与 RAG
+- 不要提交 `system.conf`、`.env`、API Key、访问令牌、服务器凭据、虚拟环境、依赖目录、构建产物、日志、缓存或生成音频。
+- 不要在公开仓库中分发未经授权的数字人模型、课程材料和数据集。
+- 生产环境应修改默认管理员密码，并限制应用、MCP、TTS 和 renderer 的网络暴露范围。
+- 知识库重建、数据重新导入、用户停用和删除属于高风险管理操作，应仅授予管理员。
 
-知识库文件默认存放在 `library/`。管理员可以在前端“知识库”页面上传 Word、文本等文档，然后执行 ingest，将文档切分、向量化并写入向量库。之后 LLM 可通过 RAG 查询相关内容。
+## 第三方组件与许可
 
-MCP 中常见知识库工具含义：
-
-- `ingest`：导入并向量化知识库文件。
-- `query`：按问题检索相关知识片段。
-- `status`：查看知识库索引、文件和服务状态。
-
-如果对应的 RAG MCP server 未启动或未连接，RAG 工具不会参与回答。
-
-## Embedding API 配置
-
-项目默认使用 OpenAI 兼容的 Embedding API。复制 `system.conf.bak` 为 `system.conf` 后，推荐显式配置：
-
-```ini
-embedding_api_model=BAAI/bge-m3
-embedding_base_url=https://api.siliconflow.cn/v1
-embedding_api_key=你的-embedding-api-key
-```
-
-如果 `embedding_base_url` 留空，会复用 `gpt_base_url`；如果 `embedding_api_key` 留空，会复用 `gpt_api_key`。RAG MCP 默认调用 Fay 的 `/v1/embeddings` 透传端点，因此通常只需要在 Fay 主配置中维护 embedding 参数。
-
-切换 Embedding API、模型或向量维度后，建议重新执行知识库 ingest，避免旧向量与新模型混用导致检索质量下降。
-
-## 常用开发命令
-
-```powershell
-# 后端启动
-python main.py start
-
-# 前端开发
-cd fay-frontend
-npm run dev
-
-# 前端构建
-npm run build
-
-# 前端测试
-npm run test
-```
-
-## Git 与安全注意事项
-
-不要提交密钥、个人配置、本地模型、运行日志、缓存、知识库原文或构建产物。重点避免提交：
-
-```text
-system.conf
-.env
-memory/
-logs/
-cache_data/
-library/
-model/
-fay-frontend/node_modules/
-fay-frontend/dist/
-```
-
-提交前建议检查：
-
-```powershell
-git status --short
-git diff --cached --name-status
-git diff --cached --name-only -G "TOKEN|PASSWORD|PRIVATE"
-```
-
-## 致谢
-
-感谢 Fay 原项目及其相关开源生态提供的数字人、语音、MCP 和工具调用基础能力。本仓库在此基础上补充了面向本地知识库和多用户管理的应用层能力。
-
-## Live2D 与第三方资源声明
-
-本项目使用 Live2D Cubism SDK for Web 实现数字人模型渲染和口型驱动。Cubism SDK、Cubism Core、示例模型及其相关知识产权归 Live2D Inc. 及相应权利人所有。本项目未将第三方角色设计、模型制作或示例动作声明为自主原创成果。
+本项目使用 Live2D Cubism SDK for Web 实现数字人模型渲染和口型驱动。Cubism SDK、Cubism Core、示例模型及相关知识产权归 Live2D Inc. 及相应权利人所有。项目不将第三方角色设计、模型制作或示例动作声明为自主原创成果。
 
 > This content uses sample data owned and copyrighted by Live2D Inc.
 > The sample data are utilized in accordance with terms and conditions set by Live2D Inc.
 > This content itself is created at the author's sole discretion.
 
-本项目的自主开发内容主要包括数字人对话、模型管理、语音驱动、口型同步、知识库检索、用户管理以及前后端集成。参赛或发布时只应携带实际使用且授权条件明确的模型资源，不应分发原始模型下载包或示例配音。
+境语AI在开源数字人基础框架上进行二次开发。参赛成果重点聚焦智慧文旅业务流程、路线推荐、数据看板、游客报告、多用户权限、知识库与 MCP 管理、跨平台口型适配，以及这些能力在统一前后端中的集成。基础框架、第三方组件和素材来源不计入团队原创成果，详细继承范围见第三方声明。
 
-完整的第三方组件、模型来源和使用边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。关于 AI/chatbot 多模型应用的 Cubism SDK 发布许可，见 [Live2D 许可咨询模板](docs/live2d-license-inquiry.md)。
+完整的第三方组件、模型来源与使用边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。源码许可见 [LICENSE](LICENSE)。
